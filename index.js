@@ -1,5 +1,16 @@
+/*!
+ * ntlogger
+ * Copyright(c) 2024 Kevin R
+ * GPL-3.0 Licensed
+ */
+
 /**
  * Change Log:
+ *
+ * v2.2.3 - 04/01/2024:
+ * Reduced GitHub Actions to only NPM publish
+ * Fixed export
+ * Modified readme and examples
  *
  * v2.2.2 - 03/31/2024:
  * Take 2 on setting up CI with GitHub Actions to NPM
