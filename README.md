@@ -24,7 +24,7 @@ npm install ntlogger
 
 ```javascript
 // Import the logger
-const logger = require('../lib/logger');
+const logger = require('ntlogger');
 
 // Create a logger instance
 const log = logger('MyApp');
@@ -41,10 +41,12 @@ log.internal('Internal message');
 ```
 
 ## Output
-Quick Start
+
+Check out [Quick Start](https://github.com/NightSquawk/NightTimeLogger/blob/main/examples/quick-start.js)
 ![Quick Start](https://github.com/NightSquawk/NightTimeLogger/blob/main/images/quick-start.png)
 
-Full Configuration
+
+Check out [Full Configuration](https://github.com/NightSquawk/NightTimeLogger/blob/main/examples/full-configuration.js)
 ![Full Configuration](https://github.com/NightSquawk/NightTimeLogger/blob/main/images/full-configuration.png)
 
 ## Configuration Options

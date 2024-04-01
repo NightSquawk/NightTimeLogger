@@ -1,5 +1,5 @@
 // Import the logger
-const logger = require('../lib/logger');
+const logger = require('ntlogger');
 
 let config = {
 
