@@ -44,4 +44,4 @@
  * Initial release
  */
 
-exports.logger = require('./lib/logger');
+module.exports = require('./lib/logger');
