@@ -40,10 +40,10 @@ log.internal('Internal message');
 
 ## Output
 Quick Start
-![Quick Start](https://github.com/NightSquawk/NightTimeLogger/blob/images/quick-start.png)
+![Quick Start](https://github.com/NightSquawk/NightTimeLogger/blob/main/images/quick-start.png)
 
 Full Configuration
-![Full Configuration](https://github.com/NightSquawk/NightTimeLogger/blob/images/full-configuration.png)
+![Full Configuration](https://github.com/NightSquawk/NightTimeLogger/blob/main/images/full-configuration.png)
 
 ## Configuration Options
 
