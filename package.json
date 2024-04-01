@@ -3,7 +3,7 @@
   "version": "2.2.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/NightSquawk/NightTimeLogger"
+    "url": "git+https://github.com/NightSquawk/NightTimeLogger.git"
   },
   "author": "Kevin R. (Kvrnn#6940, Syntax#5569)",
   "description": "A Custom Ready-To-Go Logging Wrapper Built on Winston",
@@ -18,7 +18,10 @@
     "log management",
     "logging utility"
   ],
-  "files": ["index.js", "lib/*.js"],
+  "files": [
+    "index.js",
+    "lib/*.js"
+  ],
   "license": "GPL-3.0",
   "dependencies": {
     "winston": "^3.13"
