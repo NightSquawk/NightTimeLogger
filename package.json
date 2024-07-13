@@ -1,6 +1,6 @@
 {
   "name": "ntlogger",
-  "version": "2.2.3",
+  "version": "2.3.0",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/NightSquawk/NightTimeLogger.git"
@@ -16,7 +16,9 @@
     "custom logger",
     "logging",
     "log management",
-    "logging utility"
+    "logging utility",
+    "sentry compatible",
+    "mysql compatible"
   ],
   "files": [
     "index.js",
@@ -24,6 +26,13 @@
   ],
   "license": "GPL-3.0",
   "dependencies": {
-    "winston": "^3.13"
+    "@sentry/node": "^8.17.0",
+    "mysql2": "^3.10.2",
+    "winston": "^3.13.1",
+    "winston-transport": "^4.7.1"
+  },
+  "devDependencies": {
+    "@sentry/profiling-node": "^8.17.0",
+    "dotenv": "^16.4.5"
   }
 }
