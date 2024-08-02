@@ -1,4 +1,4 @@
-name: Publish Package
+name: Test and Publish Package
 
 on:
   release:
@@ -26,9 +26,14 @@ jobs:
       - name: Install specific npm version
         run: npm install -g npm@10.8.2
 
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test
+
       - name: Publish to npm
-        run: |
-          npm ci
-          npm publish --access public
+        run: npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        if: success()
