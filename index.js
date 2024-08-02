@@ -1,11 +1,19 @@
 /*!
  * ntlogger
- * Copyright(c) 2024 Kevin R
+ * Copyright(c) 2024 KR
  * GPL-3.0 Licensed
  */
 
 /**
  * Change Log:
+ *
+ * v2.4.0 - 08/01/2024:
+ * [NOTE] Damn its been 4 months.. kinda. forgot to log last changes
+ * [CRITICAL] Fixed `includes` in package.json which prevented plugins folder from being pushed to npmjs.com
+ * [QA] Added test cases using jest
+ * [Feature] Added session ID to logger meta, try `console.log(log.defaultMeta.ID)`
+ * [Feature] Created the plugin jest. Added a custom transport for in memory logging and testing
+ * [Feature] Created the config var `skipCache` to allow you to create a new logger instance within the same file. (Usual behavior is to return the same instance within the same file)
  *
  * v2.2.3 - 04/01/2024:
  * Reduced GitHub Actions to only NPM publish
