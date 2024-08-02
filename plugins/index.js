@@ -7,6 +7,7 @@
 const plugins = {
     Sentry: require('./sentry'),
     MySQL : require('./mysql'),
+    Jest: require('./jest'),
 
     // TODO: Implement the following plugins
     // mongodb: require('./mongodb'),
