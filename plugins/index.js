@@ -8,11 +8,11 @@ const plugins = {
     Sentry: require('./sentry'),
     MySQL : require('./mysql'),
     Jest: require('./jest'),
-
-    // TODO: Implement the following plugins
-    // mongodb: require('./mongodb'),
-    // redis: require('./redis'),
+    Syslog: require('./syslog'),
+    Discord: require('./discord'),
 };
+
+// ------------------------------ DO NOT MODIFY BELOW THIS LINE ------------------------------ //
 
 function checkPluginAvailability(pluginName) {
     if (!plugins[pluginName]) {
@@ -37,16 +37,39 @@ function initPlugins(config = {}) {
         for (let plugin of config) {
             if (!plugin.name) {
                 throw new Error('Plugin name is required');
-            } else {
+            }
+
+            try {
                 checkPluginAvailability(plugin.name);
+            } catch (availabilityError) {
+                console.error(`Plugin ${plugin.name} is not available:`, availabilityError.message);
+                console.error(availabilityError.stack);
+                continue;
+            }
+
+            try {
                 let customTransportClass = getPluginTransport(plugin.name);
+
+                if (typeof customTransportClass !== 'function') {
+                    throw new Error(`Transport class for plugin ${plugin.name} is not a constructor function`);
+                }
+
+                if (!plugin.config || typeof plugin.config !== 'object') {
+                    throw new Error(`Invalid or missing config for plugin ${plugin.name}`);
+                }
+
                 pluginTransports.push(new customTransportClass(plugin.config));
+            } catch (transportError) {
+                console.error(`Failed to initialize plugin ${plugin.name}:`, transportError.message);
+                console.error(transportError.stack);
             }
         }
-        return pluginTransports;
     } catch (err) {
-        console.error('Error initializing plugins:', err);
+        console.error('Error initializing plugins:', err.message);
+        console.error(err.stack);
     }
+
+    return pluginTransports;
 }
 
 module.exports = {

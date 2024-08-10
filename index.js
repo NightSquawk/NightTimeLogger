@@ -5,7 +5,25 @@
  */
 
 /**
+ * TODO: [Feature] Generic Webhook Plugin for sending logs to any webhook
+ * TODO: [Feature] Email Plugin for sending logs to an email address
+ * TODO: [Feature] SMS Mail ID Plugin for sending logs to a phone number
+ */
+
+/**
  * Change Log:
+ *
+ * v2.5.0 - 08/10/2024:
+ * [NOTE] Syslog plugin can send logs using TLS but it is not tested. Avoid sensitive data.
+ * [Feature] Added a plugin for Discord webhook integration, allowing log messages to be sent directly to a specified Discord channel.
+ * [Feature] Added a plugin for Syslog server integration, enabling log messages to be sent to a Syslog server using UDP, TCP, or TLS protocols.
+ * [Feature] Implemented clean signal handling for graceful shutdowns (SIGINT, SIGTERM).
+ *
+ * [Update] @sentry/node            ^8.17.0 --> ^8.25.0
+ * [Update] mysql2                  ^3.10.2 --> ^3.11.0
+ * [Update] winston                 ^3.13.1 --> ^3.14.1
+ * [Update] @sentry/profiling-node  ^8.17.0 --> ^8.25.0
+ * [Update] jest                    ^29.0.0 --> ^29.7.0
  *
  * v2.4.0 - 08/01/2024:
  * [NOTE] Damn its been 4 months.. kinda. forgot to log last changes
