@@ -12,7 +12,7 @@ let config = {
         {
             name: 'Discord',
             config: {
-                webhookUrl: process.env.DISCORD_WEBHOOK_URL || 'https://ptb.discord.com/api/webhooks/1271901134663192658/FmzqFlzbIJ7NunR_4rpBkPLb4QQ5aHSNEbpT311su-QM3ZlGDI6sFuC4Ff0MF_TFrf3k',
+                webhookUrl: process.env.DISCORD_WEBHOOK_URL,
                 avatarUrl: process.env.DISCORD_AVATAR_URL || 'https://pbs.twimg.com/profile_images/997535493624508416/V7Ed1k2o_400x400.jpg',
                 username: process.env.DISCORD_USERNAME || 'NTLogger - Info',
                 level: "info",
