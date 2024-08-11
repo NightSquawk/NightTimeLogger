@@ -5,11 +5,12 @@
 
 // Available plugins
 const plugins = {
-    Sentry: require('./sentry'),
-    MySQL : require('./mysql'),
-    Jest: require('./jest'),
-    Syslog: require('./syslog'),
-    Discord: require('./discord'),
+    Sentry  : require('./sentry'),
+    MySQL   : require('./mysql'),
+    Jest    : require('./jest'),
+    Syslog  : require('./syslog'),
+    Discord : require('./discord'),
+    // WIP SMSMail : require('./smsMail'),
 };
 
 // ------------------------------ DO NOT MODIFY BELOW THIS LINE ------------------------------ //

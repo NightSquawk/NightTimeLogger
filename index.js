@@ -13,6 +13,9 @@
 /**
  * Change Log:
  *
+ * v2.5.1 - 08/10/2024:
+ * [Bug] Fixed a bug where Jest plugin was not working due to a missing config parameter. This rule was not originally enforced until v2.5.0.
+ *
  * v2.5.0 - 08/10/2024:
  * [NOTE] Syslog plugin can send logs using TLS but it is not tested. Avoid sensitive data.
  * [Feature] Added a plugin for Discord webhook integration, allowing log messages to be sent directly to a specified Discord channel.

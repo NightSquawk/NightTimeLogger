@@ -11,8 +11,8 @@ describe('Logger Base Tests', () => {
     const config = {
         level: 'internal',
         console: true,
-        file: false, // Disable file logging
-        plugins: [{ name: 'Jest' }], // Enable Jest plugin
+        file: false,
+        plugins: [{name: 'Jest',config: {}}],
     };
 
     const nameApp = 'Logger Base Tests';
