@@ -12,29 +12,32 @@
 
 /**
  * Change Log:
+ * 
+ * v2.5.2 - 08/11/2024:
+ * [BUG] Fixed an issue where the /plugins/lib folder was not being pushed to npmjs.com.
  *
  * v2.5.1 - 08/10/2024:
- * [Bug] Fixed a bug where Jest plugin was not working due to a missing config parameter. This rule was not originally enforced until v2.5.0.
+ * [BUG] Fixed a bug where Jest plugin was not working due to a missing config parameter. This rule was not originally enforced until v2.5.0.
  *
  * v2.5.0 - 08/10/2024:
  * [NOTE] Syslog plugin can send logs using TLS but it is not tested. Avoid sensitive data.
- * [Feature] Added a plugin for Discord webhook integration, allowing log messages to be sent directly to a specified Discord channel.
- * [Feature] Added a plugin for Syslog server integration, enabling log messages to be sent to a Syslog server using UDP, TCP, or TLS protocols.
- * [Feature] Implemented clean signal handling for graceful shutdowns (SIGINT, SIGTERM).
+ * [FEATURE] Added a plugin for Discord webhook integration, allowing log messages to be sent directly to a specified Discord channel.
+ * [FEATURE] Added a plugin for Syslog server integration, enabling log messages to be sent to a Syslog server using UDP, TCP, or TLS protocols.
+ * [FEATURE] Implemented clean signal handling for graceful shutdowns (SIGINT, SIGTERM).
  *
- * [Update] @sentry/node            ^8.17.0 --> ^8.25.0
- * [Update] mysql2                  ^3.10.2 --> ^3.11.0
- * [Update] winston                 ^3.13.1 --> ^3.14.1
- * [Update] @sentry/profiling-node  ^8.17.0 --> ^8.25.0
- * [Update] jest                    ^29.0.0 --> ^29.7.0
+ * [UPDATED] @sentry/node            ^8.17.0 --> ^8.25.0
+ * [UPDATED] mysql2                  ^3.10.2 --> ^3.11.0
+ * [UPDATED] winston                 ^3.13.1 --> ^3.14.1
+ * [UPDATED] @sentry/profiling-node  ^8.17.0 --> ^8.25.0
+ * [UPDATED] jest                    ^29.0.0 --> ^29.7.0
  *
  * v2.4.0 - 08/01/2024:
  * [NOTE] Damn its been 4 months.. kinda. forgot to log last changes
  * [CRITICAL] Fixed `includes` in package.json which prevented plugins folder from being pushed to npmjs.com
  * [QA] Added test cases using jest
- * [Feature] Added session ID to logger meta, try `console.log(log.defaultMeta.ID)`
- * [Feature] Created the plugin jest. Added a custom transport for in memory logging and testing
- * [Feature] Created the config var `skipCache` to allow you to create a new logger instance within the same file. (Usual behavior is to return the same instance within the same file)
+ * [FEATURE] Added session ID to logger meta, try `console.log(log.defaultMeta.ID)`
+ * [FEATURE] Created the plugin jest. Added a custom transport for in memory logging and testing
+ * [FEATURE] Created the config var `skipCache` to allow you to create a new logger instance within the same file. (Usual behavior is to return the same instance within the same file)
  *
  * v2.2.3 - 04/01/2024:
  * Reduced GitHub Actions to only NPM publish
