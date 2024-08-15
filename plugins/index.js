@@ -10,6 +10,7 @@ const plugins = {
     Jest    : require('./jest'),
     Syslog  : require('./syslog'),
     Discord : require('./discord'),
+    Teams   : require('./teams'),
     // WIP SMSMail : require('./smsMail'),
 };
 

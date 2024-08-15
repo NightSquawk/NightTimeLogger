@@ -8,11 +8,14 @@
  * TODO: [Feature] Generic Webhook Plugin for sending logs to any webhook
  * TODO: [Feature] Email Plugin for sending logs to an email address
  * TODO: [Feature] SMS Mail ID Plugin for sending logs to a phone number
+ * TODO: [Feature] Allow for custom log levels and colors
  */
 
 /**
  * Change Log:
- * 
+ * v2.6.0 - 08/15/2024:
+ * [FEATURE] Teams Plugin! Send logs to a Microsoft Teams channel using incoming webhooks.
+ *
  * v2.5.2 - 08/11/2024:
  * [BUG] Fixed an issue where the /plugins/lib folder was not being pushed to npmjs.com.
  *

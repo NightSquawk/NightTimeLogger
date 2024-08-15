@@ -8,7 +8,7 @@ const https = require('https');
 const { URL } = require('url');
 
 const colors = require('../lib/colors');
-const levels = require('../lib/levels'); // Assuming this file contains the log levels mapping
+const levels = require('../lib/levels');
 
 class DiscordTransport extends Transport {
     constructor(opts = {}) {

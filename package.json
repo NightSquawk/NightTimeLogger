@@ -1,6 +1,6 @@
 {
   "name": "ntlogger",
-  "version": "2.5.2",
+  "version": "2.6.0",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/NightSquawk/NightTimeLogger.git"
@@ -20,7 +20,8 @@
     "sentry compatible",
     "mysql compatible",
     "syslog compatible",
-    "discord compatible"
+    "discord compatible",
+    "teams compatible"
   ],
   "files": [
     "index.js",

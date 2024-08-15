@@ -2,19 +2,19 @@
 
 NightTimeLogger is a powerful and flexible logging utility with various plugins to extend its functionality. This README provides an overview of the available plugins and instructions on how to set them up.
 
-![Discord Plugin Output](https://github.com/NightSquawk/NightTimeLogger/blob/main/images/plugins/pluginDiscordOutput.png)
-
 ## Available Plugins
 
 ### 1. Discord
 **Description:** Sends logs to a Discord webhook, allowing you to receive log messages directly in a specified Discord channel.
+
+![Discord Plugin Output](https://github.com/NightSquawk/NightTimeLogger/blob/main/images/plugins/discord/pluginDiscordOutput.png)
 
 **Setup:**
 ```javascript
 {
     name: 'Discord',
     config: {
-        webhookUrl: process.env.DISCORD_WEBHOOK_URL || 'https://ptb.discord.com/api/webhooks/1271901134663192658/FmzqFlzbIJ7NunR_4rpBkPLb4QQ5aHSNEbpT311su-QM3ZlGDI6sFuC4Ff0MF_TFrf3k',
+        webhookUrl: process.env.DISCORD_WEBHOOK_URL
         avatarUrl: process.env.DISCORD_AVATAR_URL || 'https://pbs.twimg.com/profile_images/997535493624508416/V7Ed1k2o_400x400.jpg',
         username: process.env.DISCORD_USERNAME || 'NTLogger - Info',
         level: "info",
@@ -51,7 +51,7 @@ Setup:
 }
 ```
 
-### . MySQL
+### 3. MySQL
 Description: Stores logs in a MySQL database, allowing you to persist log messages and analyze them using SQL queries.
 
 Setup:
@@ -84,6 +84,9 @@ Setup:
 ### 5. Syslog
 Description: Sends logs to a Syslog server using a custom Syslog client. This allows integration with traditional logging systems that rely on Syslog.
 
+![Syslog Plugin Output](https://github.com/NightSquawk/NightTimeLogger/blob/main/images/plugins/syslog/pluginSyslogOutput.png)
+
+
 Setup:
 
 ``` javascript
@@ -101,11 +104,140 @@ Setup:
 }
 ```
 
+### 6. Teams
+**Description:** Sends logs to a Microsoft Teams channel using an incoming webhook connector. This plugin allows you to receive log messages directly in a specified Teams channel.
+
+
+![Teams Mixed Object Plugin Output](https://github.com/NightSquawk/NightTimeLogger/blob/main/images/plugins/teams/pluginTeamsMixedOutput.png)
+
+
+**Setup:**
+
+``` javascript
+{
+    name: 'Teams',
+        config: {
+        webhookUrl: process.env.TEAMS_WEBHOOK_URL || "im not leaking my webhook url again",
+            level: process.env.LOG_LEVEL || "info",
+            strict: process.env.LOG_STRICT_LOGGING || true,
+    },
+},
+```
+
+This plugin supports additional configuration at the meta level. This allows you to create complex Teams messages with custom formatting and attachments..
+
+![Teams Simple Object Plugin Output](https://github.com/NightSquawk/NightTimeLogger/blob/main/images/plugins/teams/pluginTeamsSimpleOutput.png)
+
+```javascript
+log.info('Informational message',   [
+    { type: "location", district: "District 1", store: "Store 1", department: "Department 1"},
+    { type: "button", actionableBoxName: "First Button!", actionableURL: 'firstURL' },
+    { type: "button", actionableBoxName: "Second Button!", actionableURL: 'secondURL' },
+    // { type: "ping", mentionId: "example@example.com"}, // MUST BE A VALID USER EMAIL
+    // { type: "ping", mentionId: "example@example.com"}, // MUST BE A VALID USER EMAIL
+    { "type": "error", "message": "An unexpected error occurred.", "stack": "Error stack trace here" },
+    { "type": "metric", "name": "CPU Usage", "value": "85%" },
+    { "type": "metric", "name": "Request Count", "value": 123 },
+]);
+```
+
+It also supports the complete https://adaptivecards.io/explorer/AdaptiveCard.html schema.
+
+![Teams Raw Object Plugin Output](https://github.com/NightSquawk/NightTimeLogger/blob/main/images/plugins/teams/pluginTeamsRawOutput.png)
+
+```javascript
+log.error('Error message',[
+    { type: "raw", raw: {
+    body: [
+        { type: "TextBlock", text: "Raw Type" },
+        {
+            type: "ColumnSet",
+            columns: [
+                { type: "Column",
+                    items: [
+                        { "type": "TextBlock", "text": "Cats" },
+                        { type: "Image",url: "https://png.pngtree.com/png-clipart/20230511/ourmid/pngtree-isolated-cat-on-white-background-png-image_7094927.png", altText: "Cat", wrap: true, size: "auto", separator: true, },
+                    ]
+                },
+                { type: "Column",
+                    items: [
+                        { "type": "TextBlock", "text": "Dogs" },
+                        { type: "Image",url: "https://i.pinimg.com/originals/07/b2/40/07b240561cb656aec289df602e603bee.png", altText: "Dog", wrap: true, size: "auto", separator: true, },
+                    ]
+                },
+                { type: "Column",
+                    items: [
+                        { "type": "TextBlock", "text": "Birds" },
+                        { type: "Image",url: "https://cdn.pixabay.com/photo/2016/03/02/13/59/bird-1232416_1280.png", altText: "Bird", wrap: true, size: "auto", separator: true, }
+                    ]
+                },
+            ]
+        },
+        {
+            "type": "FactSet",
+            "facts": [
+                {
+                    "title": "Fact 1",
+                    "value": "Value 1"
+                },
+                {
+                    "title": "Fact 2",
+                    "value": "Value 2"
+                },
+                {
+                    "title": "Fact 3",
+                    "value": "Value 3"
+                },
+                {
+                    "title": "Fact 4",
+                    "value": "Value 5"
+                }
+            ]
+        },
+    ],
+    action: [
+        {
+            type: 'Action.OpenUrl',
+            title: "See more cats!",
+            url: 'https://www.google.com/search?q=cute%20cats&udm=2'
+        },
+        {
+            type: 'Action.OpenUrl',
+            title: "Chickens?",
+            url: 'https://www.google.com/search?q=chickens&udm=2'
+        },
+        {
+            "type": "Action.ShowCard",
+            "title": "Whats this?",
+            "card": {
+                "type": "AdaptiveCard",
+                "body": [
+                    {
+                        "type": "TextBlock",
+                        "text": "Cool?"
+                    }
+                ],
+                "actions": [
+                    {
+                        "type": "Action.Submit",
+                        "title": "You betcha!",
+                        "data": {
+                            "betcha": "true"
+                        }
+                    }
+                ]
+            }
+        }
+        ]},
+    },
+]);
+```
+
 ### Example Logger Configuration
 Here is an example configuration for NightTimeLogger using multiple plugins:
 
 ``` javascript
-Copy code
+
 let config = {
     level: 'internal',
     file: false,
