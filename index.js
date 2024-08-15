@@ -13,6 +13,11 @@
 
 /**
  * Change Log:
+ * v2.6.1 - 08/15/2024:
+ * [UPDATED] @sentry/node            ^8.25.0 --> ^8.26.0
+ * [UPDATED] @sentry/profiling-node  ^8.25.0 --> ^8.26.0
+ * [UPDATED] winston                 ^3.14.1 --> ^3.14.2
+ *
  * v2.6.0 - 08/15/2024:
  * [FEATURE] Teams Plugin! Send logs to a Microsoft Teams channel using incoming webhooks.
  *
