@@ -7,10 +7,12 @@
 const plugins = {
     Sentry  : require('./sentry'),
     MySQL   : require('./mysql'),
+    Postgres: require('./postgres'),
     Jest    : require('./jest'),
     Syslog  : require('./syslog'),
     Discord : require('./discord'),
     Teams   : require('./teams'),
+
     // WIP SMSMail : require('./smsMail'),
 };
 

@@ -13,6 +13,11 @@
 
 /**
  * Change Log:
+ * v2.6.2 - 08/15/2024:
+ * [DEPENDENCY] Added pg package for Postgres Plugin
+ * [FEATURE] Postgres Plugin
+ *           a simple mysql rewrite so not even going to make a minor version bump
+ *
  * v2.6.1 - 08/15/2024:
  * [UPDATED] @sentry/node            ^8.25.0 --> ^8.26.0
  * [UPDATED] @sentry/profiling-node  ^8.25.0 --> ^8.26.0
