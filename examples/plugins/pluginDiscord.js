@@ -11,6 +11,7 @@ let config = {
     plugins: [
         {
             name: 'Discord',
+            enabled: true,
             config: {
                 webhookUrl: process.env.DISCORD_WEBHOOK_URL || 'https://ptb.discord.com/api/webhooks/1271901134661782658/FmzqFlzbIJ7NunR_4rpBkPLb4QQ5aHSGke3pT311su-QM3ZlGD6sFuC4FfMF_TFf3k',
                 avatarUrl: process.env.DISCORD_AVATAR_URL || 'https://pbs.twimg.com/profile_images/997535493624508416/V7Ed1k2o_400x400.jpg',

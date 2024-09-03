@@ -5,14 +5,28 @@
  */
 
 /**
- * TODO: [Feature] Generic Webhook Plugin for sending logs to any webhook
- * TODO: [Feature] Email Plugin for sending logs to an email address
- * TODO: [Feature] SMS Mail ID Plugin for sending logs to a phone number
- * TODO: [Feature] Allow for custom log levels and colors
+ * TODO: [FEATURE] Generic Webhook Plugin for sending logs to any webhook
+ * TODO: [FEATURE] Email Plugin for sending logs to an email address
+ * TODO: [FEATURE] SMS Mail ID Plugin for sending logs to a phone number
+ * TODO: [FEATURE] Allow for custom log levels and colors
+ * TODO: [FEATURE] Add a toggle to enable/disable individual plugins
+ * TODO: [FEATURE] Attempt automatically parse the environment variables for the config using special flags.
+ *                 This would allow for a more seamless integration with Docker and adjustments to the config without code changes.
+ * TODO: [FEATURE] Make `LOG_REPORT_PATH` a build in variable. This variable attempts to find the current file name and directory name for cleaner logs.
+ *                 LOG_REPORT_PATH=(path.basename(path.dirname(__filename)) === process.env.APP_NAME ? '/' : path.basename(path.dirname(__filename)) + '/') + path.basename(__filename, ".js")
+ *                 2024-08-27 23:45:28 [trace   ] [ID: 578060] [APP_NAME routes/instructions]: Logger initiated by routes/instructions with log level trace
+ *                 2024-08-27 23:45:28 [trace   ] [ID: 578060] [APP_NAME routes/create-and-sign]: Logger initiated by routes/create-and-sign with log level trace
+ * TODO: [FEATURE] Add a option to pass a banner. For example logger.banner('Project Name') would print a banner with the project name.
+ * TODO: [TESTING] Create a comprehensive test suite for all plugins.
+ * TODO: [BUG] Syslog plugin has incorrect log levels. (For example, info reports level 3, and reports as 11 in the Syslog server)
  */
 
 /**
  * Change Log:
+ * v2.7.0 - 09/02/2024:
+ * [FEATURE] Added a toggle to enable/disable individual plugins. See documentation for more information.
+ * [NOTE] Changed how the plugins are loaded. Broken plugins will no longer crash the logger, rather they will be disabled.
+ *
  * v2.6.2 - 08/15/2024:
  * [DEPENDENCY] Added pg package for Postgres Plugin
  * [FEATURE] Postgres Plugin

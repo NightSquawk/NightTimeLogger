@@ -13,6 +13,7 @@ let config = {
     plugins: [
         {
             name: 'MySQL',
+            enabled: true,
             config: {
                 host: process.env.MYSQL_DB_HOST || 'localhost',
                 port: process.env.MYSQL_DB_PORT || 3306,

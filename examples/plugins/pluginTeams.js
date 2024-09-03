@@ -11,6 +11,7 @@ let config = {
     plugins: [
         {
             name: 'Teams',
+            enabled: true,
             config: {
                 webhookUrl: process.env.TEAMS_WEBHOOK_URL || "im not leaking my webhook url again",
                 level: process.env.LOG_LEVEL || "info",
@@ -19,6 +20,7 @@ let config = {
         },
         {
             name: 'Teams',
+            enabled: true,
             config: {
                 webhookUrl: process.env.TEAMS_WEBHOOK_URL || "im not leaking my webhook url again",
                 level: "warn",

@@ -13,6 +13,7 @@ let config = {
     plugins: [
         {
             name: 'Sentry',
+            enabled: true,
             config: {
                 dsn: process.env.SENTRY_DSN || null,
                 release: process.env.SENTRY_RELEASE || null,

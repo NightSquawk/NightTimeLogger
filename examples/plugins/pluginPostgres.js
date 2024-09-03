@@ -13,6 +13,7 @@ let config = {
     plugins: [
         {
             name: 'Postgres',
+            enabled: true,
             config: {
                 host: process.env.POSTGRES_DB_HOST          || 'localhost',
                 port: process.env.POSTGRES_DB_PORT          ||  5432,

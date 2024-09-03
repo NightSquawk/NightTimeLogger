@@ -8,7 +8,7 @@ const logger = require('../../lib/logger');
 let config = {
     level: 'internal',
     file: false,
-    plugins: [{name: 'Jest',config: {}}],
+    plugins: [{name: 'Jest', enabled: true, config: {}}],
 }
 
 // Create a logger instance

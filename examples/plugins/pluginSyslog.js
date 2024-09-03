@@ -11,6 +11,7 @@ let config = {
     plugins: [
         {
             name: 'Syslog',
+            enabled: true,
             config: {
                 // The hostname or IP address of the Syslog server to which logs will be sent.
                 // 'localhost' means the Syslog server is running on the same machine.

@@ -39,8 +39,25 @@ function initPlugins(config = {}) {
     let pluginTransports = [];
     try {
         for (let plugin of config) {
-            if (!plugin.name) {
-                throw new Error('Plugin name is required');
+            try {
+                if (!plugin.name) {
+                    throw new Error('Plugin name is required');
+                }
+            } catch (nameError) {
+                console.error('Error initializing plugins:', nameError.message);
+                console.error(nameError.stack);
+                continue
+            }
+
+            try {
+                if (!plugin.enabled) {
+                    console.log(`Plugin ${plugin.name} is disabled`);
+                    continue;
+                }
+            } catch (enabledError) {
+                console.error('Error initializing plugins:', enabledError.message);
+                console.error(enabledError.stack);
+                continue
             }
 
             try {
