@@ -12,7 +12,7 @@ describe('Logger Base Tests', () => {
         level: 'internal',
         console: true,
         file: false,
-        plugins: [{name: 'Jest',config: {}}],
+        plugins: [{name: 'Jest', enabled: true, config: {}}],
     };
 
     const nameApp = 'Logger Base Tests';

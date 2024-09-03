@@ -13,7 +13,7 @@ describe('Logger Base Config Tests', () => {
         console: true,
         file: false,
         skipCache: true,
-        plugins: [{name: 'Jest',config: {}}],
+        plugins: [{name: 'Jest', enabled: true, config: {}}],
     };
 
     const nameApp = 'Logger Base Config Tests';
