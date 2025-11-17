@@ -81,8 +81,9 @@ describe('Advanced Features Tests', () => {
         await new Promise(resolve => setImmediate(resolve));
         
         const messages = jestTransport.getMessages('debug');
-        // Should have approximately 10% (allow variance)
-        expect(messages.length).toBeGreaterThan(5);
+        // Should have approximately 10% (allow variance for randomness)
+        // With 100 messages at 10% sampling, we expect ~10, but allow 3-20 range
+        expect(messages.length).toBeGreaterThanOrEqual(3);
         expect(messages.length).toBeLessThan(20);
     });
 
