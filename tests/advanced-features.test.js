@@ -73,18 +73,27 @@ describe('Advanced Features Tests', () => {
         const jestTransport = log.transports.find(t => t.name === 'JestTransport');
         jestTransport.clearMessages();
         
-        // Send 100 debug messages
-        for (let i = 0; i < 100; i++) {
+        // Send 5000 debug messages for better statistical validation
+        const totalMessages = 5000;
+        for (let i = 0; i < totalMessages; i++) {
             log.debug(`Debug message ${i}`);
         }
         
         await new Promise(resolve => setImmediate(resolve));
         
         const messages = jestTransport.getMessages('debug');
-        // Should have approximately 10% (allow variance for randomness)
-        // With 100 messages at 10% sampling, we expect ~10, but allow 3-20 range
-        expect(messages.length).toBeGreaterThanOrEqual(3);
-        expect(messages.length).toBeLessThan(20);
+        const sampledCount = messages.length;
+        const actualRate = sampledCount / totalMessages;
+        
+        // With 5000 messages at 10% sampling, we expect ~500 messages
+        // Allow 5% margin: 7.5% to 12.5% (375 to 625 messages)
+        // This ensures the sampling rate is approximately correct
+        expect(sampledCount).toBeGreaterThanOrEqual(375);
+        expect(sampledCount).toBeLessThan(625);
+        
+        // Verify the actual rate is close to 10%
+        expect(actualRate).toBeGreaterThanOrEqual(0.075); // 7.5%
+        expect(actualRate).toBeLessThanOrEqual(0.125); // 12.5%
     });
 
     test('should rate limit error logs', async () => {
