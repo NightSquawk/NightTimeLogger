@@ -1,34 +1,37 @@
 {
   "name": "ntlogger",
   "version": "2.7.0",
+  "description": "A Custom Ready-To-Go Logging Wrapper Built on Winston",
+  "keywords": [
+    "custom logger",
+    "discord compatible",
+    "log management",
+    "logger",
+    "logger wrapper",
+    "logging",
+    "logging utility",
+    "mysql compatible",
+    "sentry compatible",
+    "syslog compatible",
+    "teams compatible",
+    "winston logger",
+    "winston wrapper",
+    "wrapper"
+  ],
+  "author": "Kevin R. (Kvrnn#6940, Syntax#5569)",
+  "license": "GPL-3.0",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/NightSquawk/NightTimeLogger.git"
   },
-  "author": "Kevin R. (Kvrnn#6940, Syntax#5569)",
-  "description": "A Custom Ready-To-Go Logging Wrapper Built on Winston",
-  "keywords": [
-    "logger",
-    "winston wrapper",
-    "logger wrapper",
-    "wrapper",
-    "winston logger",
-    "custom logger",
-    "logging",
-    "log management",
-    "logging utility",
-    "sentry compatible",
-    "mysql compatible",
-    "syslog compatible",
-    "discord compatible",
-    "teams compatible"
-  ],
   "files": [
     "index.js",
     "lib/*.js",
     "plugins/**/*"
   ],
-  "license": "GPL-3.0",
+  "scripts": {
+    "test": "jest"
+  },
   "dependencies": {
     "@sentry/node": "^10.25.0",
     "mysql2": "^3.15.3",
@@ -40,8 +43,5 @@
     "@sentry/profiling-node": "^10.25.0",
     "dotenv": "^17.2.3",
     "jest": "^30.2.0"
-  },
-  "scripts": {
-    "test": "jest"
   }
 }
