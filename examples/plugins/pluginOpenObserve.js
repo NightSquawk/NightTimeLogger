@@ -25,9 +25,9 @@ let config = {
                 // The stream name where logs will be sent
                 stream: process.env.OPENOBSERVE_STREAM || 'logs',
 
-                // Authentication credentials
-                username: process.env.OPENOBSERVE_USERNAME || 'admin@ithelper.local',
-                password: process.env.OPENOBSERVE_PASSWORD || 'qRPE6Rg2rQSXVPUu',
+                // Authentication credentials (replace with your own user credentials)
+                username: process.env.OPENOBSERVE_USERNAME || 'your-username',
+                password: process.env.OPENOBSERVE_PASSWORD || 'your-password',
 
                 // Optional: Number of logs to batch before sending (default: 100)
                 // Batching improves performance by reducing the number of HTTP requests
