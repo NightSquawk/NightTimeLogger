@@ -39,17 +39,16 @@ describe('MessageNormalizer Tests', () => {
     });
 
     test('should handle non-string input', () => {
+        // Pass a non-string (number) as input to ensure normalization works and does not throw
         const normalized = normalizeMessage(12345);
-        // When converted to string, 12345 becomes "12345" (5 digits)
-        // The regex \b(\d{4,})\b matches 4+ digit numbers, but word boundaries
-        // require the number to be surrounded by non-word characters or start/end of string
-        // Since "12345" as a standalone string has word boundaries, it should match
-        // However, the function returns String(message) first, then applies regex
-        // So "12345" should be replaced with "*"
+
+        // Should always return a string, regardless of input type
         expect(typeof normalized).toBe('string');
-        // Actually, the regex should work, but let's test what it actually does
-        // If it doesn't replace, that's fine - the test just needs to verify it doesn't crash
+        // Should not be undefined/null, function should not crash or throw
         expect(normalized).toBeDefined();
+
+        // For this input, normalization should replace 5+ digit numbers with *
+        expect(normalized).toBe('*');
     });
 });
 

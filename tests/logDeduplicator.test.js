@@ -102,7 +102,9 @@ describe('LogDeduplicator Tests', () => {
             window: 60000
         });
         
+        expect(deduplicator.cleanupInterval).toBeDefined();
         deduplicator.destroy();
+        expect(deduplicator.cleanupInterval).toBeNull();
         // Should not throw
         expect(() => deduplicator.check('info', 'Test', {})).not.toThrow();
     });

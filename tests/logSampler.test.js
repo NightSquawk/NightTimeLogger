@@ -89,7 +89,9 @@ describe('LogSampler Tests', () => {
             rateLimit: { error: { max: 5, window: 1000 } }
         });
         
+        expect(sampler.cleanupInterval).toBeDefined();
         sampler.destroy();
+        expect(sampler.cleanupInterval).toBeNull();
         // Should not throw
         expect(() => sampler.shouldProcess('error')).not.toThrow();
     });
