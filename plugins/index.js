@@ -5,13 +5,14 @@
 
 // Available plugins
 const plugins = {
-    Sentry  : require('./sentry'),
-    MySQL   : require('./mysql'),
-    Postgres: require('./postgres'),
-    Jest    : require('./jest'),
-    Syslog  : require('./syslog'),
-    Discord : require('./discord'),
-    Teams   : require('./teams'),
+    Sentry      : require('./sentry'),
+    MySQL       : require('./mysql'),
+    Postgres    : require('./postgres'),
+    Jest        : require('./jest'),
+    Syslog      : require('./syslog'),
+    Discord     : require('./discord'),
+    Teams       : require('./teams'),
+    OpenObserve : require('./openobserve'),
 
     // WIP SMSMail : require('./smsMail'),
 };
@@ -51,7 +52,7 @@ function initPlugins(config = {}) {
 
             try {
                 if (!plugin.enabled) {
-                    console.log(`Plugin ${plugin.name} is disabled`);
+                    if (config.alerts === true) {console.log(`Plugin ${plugin.name} is disabled`);}
                     continue;
                 }
             } catch (enabledError) {

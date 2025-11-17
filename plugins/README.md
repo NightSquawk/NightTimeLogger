@@ -233,6 +233,34 @@ log.error('Error message',[
 ]);
 ```
 
+### 7. OpenObserve
+**Description:** Sends logs to OpenObserve, an open-source observability platform. This plugin automatically strips ANSI escape codes, removes timestamps, and sends clean structured JSON logs to OpenObserve's HTTP API with batching support for improved performance.
+
+**Setup:**
+
+```javascript
+{
+    name: 'OpenObserve',
+    config: {
+        host: process.env.OPENOBSERVE_HOST || 'http://localhost:5080',
+        organization: process.env.OPENOBSERVE_ORGANIZATION || 'default',
+        stream: process.env.OPENOBSERVE_STREAM || 'logs',
+        username: process.env.OPENOBSERVE_USERNAME || 'root@example.com',
+        password: process.env.OPENOBSERVE_PASSWORD || 'ComplexPass#123',
+        batchSize: 100, // Optional: Number of logs to batch before sending (default: 100)
+        timeThreshold: 5000, // Optional: Time in milliseconds before sending batch (default: 5000)
+        level: 'info', // Optional: Minimum log level to send (default: 'info')
+    },
+}
+```
+
+**Features:**
+- Automatic ANSI code stripping from all log messages and metadata
+- Timestamp removal (OpenObserve adds its own `_timestamp` field)
+- Batching support to reduce HTTP requests and improve performance
+- Clean structured JSON output suitable for OpenObserve ingestion
+- Support for all log levels with configurable filtering
+
 ### Example Logger Configuration
 Here is an example configuration for NightTimeLogger using multiple plugins:
 
@@ -283,6 +311,19 @@ let config = {
                 protocol: 'UDP',
                 facility: 1,
                 appName: 'MyAppLogger',
+            },
+        },
+        {
+            name: 'OpenObserve',
+            config: {
+                host: process.env.OPENOBSERVE_HOST || 'http://localhost:5080',
+                organization: process.env.OPENOBSERVE_ORGANIZATION || 'default',
+                stream: process.env.OPENOBSERVE_STREAM || 'logs',
+                username: process.env.OPENOBSERVE_USERNAME,
+                password: process.env.OPENOBSERVE_PASSWORD,
+                batchSize: 100,
+                timeThreshold: 5000,
+                level: 'info',
             },
         },
     ],
