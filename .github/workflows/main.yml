@@ -6,26 +6,30 @@ on:
   push:
     branches:
       - main
+    tags:
+      - 'v*'
+
+permissions:
+  id-token: write  # Required for OIDC trusted publishing
+  contents: read
 
 jobs:
   build-and-publish:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v4
         with:
           node-version: '20.x'
           registry-url: 'https://registry.npmjs.org'
-          token: ${{ secrets.NPM_TOKEN }}
+          # No token needed - using OIDC trusted publishing
 
-      - name: Install specific npm version
-        run: npm install -g npm@10.8.2
+      - name: Update npm
+        run: npm install -g npm@latest
+        # Ensure npm 11.5.1 or later for trusted publishing support
 
       - name: Install dependencies
         run: |
@@ -39,3 +43,4 @@ jobs:
       - name: Publish to npm
         run: npm publish --access public
         if: success()
+        # Uses OIDC trusted publishing - no NODE_AUTH_TOKEN needed
