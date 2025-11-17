@@ -28,8 +28,11 @@ describe('Logger Base Tests', () => {
         jestTransport.clearMessages();
     });
 
-    test('should log info message and store in memory', () => {
+    test('should log info message and store in memory', async () => {
         log.info('Informational message');
+
+        // Wait for async processing (setImmediate)
+        await new Promise(resolve => setImmediate(resolve));
 
         const logMessages = jestTransport.getMessages('info');
 
@@ -44,8 +47,11 @@ describe('Logger Base Tests', () => {
         );
     });
 
-    test('should log warning message and store in memory', () => {
+    test('should log warning message and store in memory', async () => {
         log.warn('Warning message');
+
+        // Wait for async processing (setImmediate)
+        await new Promise(resolve => setImmediate(resolve));
 
         const logMessages = jestTransport.getMessages('warn');
 
@@ -60,8 +66,11 @@ describe('Logger Base Tests', () => {
         );
     });
 
-    test('should log error message and store in memory', () => {
+    test('should log error message and store in memory', async () => {
         log.error('Error message');
+
+        // Wait for async processing (setImmediate)
+        await new Promise(resolve => setImmediate(resolve));
 
         const logMessages = jestTransport.getMessages('error');
 
@@ -76,8 +85,11 @@ describe('Logger Base Tests', () => {
         );
     });
 
-    test('should log internal message and store in memory', () => {
+    test('should log internal message and store in memory', async () => {
         log.internal('Internal message');
+
+        // Wait for async processing (setImmediate)
+        await new Promise(resolve => setImmediate(resolve));
 
         const logMessages = jestTransport.getMessages('internal');
 

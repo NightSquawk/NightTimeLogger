@@ -29,7 +29,7 @@ describe('Logger Base Config Tests', () => {
     ];
 
     levels.forEach((level, index) => {
-        test(`should respect log level configuration - ${level}`, () => {
+        test(`should respect log level configuration - ${level}`, async () => {
             const tconfig = { ...config, level };
             log = logger(nameApp, tconfig);
 
@@ -46,6 +46,9 @@ describe('Logger Base Config Tests', () => {
             log.warn(`Warn message - Current level: ${level}`);
             log.error(`Error message - Current level: ${level}`);
             log.fatal(`Fatal message - Current level: ${level}`);
+
+            // Wait for async processing (setImmediate)
+            await new Promise(resolve => setImmediate(resolve));
 
             const allMessages = jestTransport.getMessages();
 
