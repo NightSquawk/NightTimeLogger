@@ -9,6 +9,7 @@ let config = {
     level: 'internal',
     file: false,
     console: true,
+    reportPath: true,
     plugins: [
         {
             name: 'OpenObserve',

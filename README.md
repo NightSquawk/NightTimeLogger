@@ -11,6 +11,7 @@ NightTimeLogger is a custom logging wrapper built on top of the Winston logging 
 - Custom session ID generation for tracking log sessions.
 - Support for both file and console log formatters.
 - Ability to configure log levels and formats to suit specific requirements.
+- Native call site path reporting - automatically capture file path, line number, and call chain where each log statement is executed.
 
 ## Installation
 
@@ -59,6 +60,28 @@ Check out [Full Configuration](https://github.com/NightSquawk/NightTimeLogger/bl
 - `maxFiles`: The maximum number of log files to retain (rotating file strategy).
 - `timestamp`: Whether to include timestamps in log messages. Defaults to `true`.
 - `debug`: Whether to enable debug mode, which logs internal messages. Defaults to `false`.
+- `reportPath`: Whether to enable call site path reporting. When enabled, automatically captures the file path, line number, column number, and call chain where each log statement is executed. The path is added as metadata (JSON field `filePath`), not in the formatted message string. Defaults to `false`.
+
+### Call Site Path Reporting
+
+When `reportPath` is enabled, each log entry includes a `filePath` field in its metadata showing where the log was called:
+
+```javascript
+const logger = require('ntlogger');
+
+const log = logger('MyApp', {
+    reportPath: true
+});
+
+log.info('User logged in'); // filePath will show: "./src/routes/auth.js:45:12 [handleLogin ← router.post]"
+```
+
+The `filePath` field appears in:
+- JSON metadata (for plugins like OpenObserve)
+- Console output (appended to location)
+- File logs (appended to location)
+
+Note: The `location` field represents the logger instance name, while `filePath` shows the actual call site where the log statement was written.
 
 ## Custom Levels and Colors
 NightTimeLogger provides custom log levels and colors for enhanced logging experience:

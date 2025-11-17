@@ -145,10 +145,12 @@ class OpenObserveTransport extends Transport {
         const cleanedLogs = logsToSend.map(log => {
             const cleaned = cleanObject(log);
             // Ensure we have the essential fields
+            // Note: filePath (from reportPath feature) is preserved in metadata as a separate JSON field
+            // It's not in the formatted message string, ensuring clean structured data for OpenObserve
             return {
                 level: cleaned.level,
                 message: cleaned.message,
-                ...cleaned
+                ...cleaned  // Includes all metadata fields like filePath, location, ID, etc.
             };
         });
 

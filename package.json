@@ -1,6 +1,6 @@
 {
   "name": "ntlogger",
-  "version": "2.7.0",
+  "version": "2.8.0",
   "description": "A Custom Ready-To-Go Logging Wrapper Built on Winston",
   "keywords": [
     "custom logger",
