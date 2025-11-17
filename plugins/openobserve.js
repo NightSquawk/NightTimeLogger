@@ -199,7 +199,7 @@ class OpenObserveTransport extends Transport {
         }
 
         this.flushTimer = setTimeout(() => {
-            this.flush();
+            this._flush();
         }, this.timeThreshold);
     }
 
@@ -225,13 +225,92 @@ class OpenObserveTransport extends Transport {
 
         // Flush if batch size is reached
         if (this.logQueue.length >= this.batchSize) {
-            this.flush();
+            this._flush();
         } else {
             // Schedule a flush after timeThreshold
             this.scheduleFlush();
         }
 
         callback();
+    }
+
+    /**
+     * Flushes the log queue (can be called manually)
+     * @returns {Promise} - Promise that resolves when flush is complete
+     */
+    flush() {
+        return new Promise((resolve) => {
+            setImmediate(() => {
+                this._flush();
+                resolve();
+            });
+        });
+    }
+
+    /**
+     * Internal flush method (synchronous)
+     */
+    _flush() {
+        if (this.logQueue.length === 0) {
+            return;
+        }
+
+        const logsToSend = [...this.logQueue];
+        this.logQueue = [];
+
+        // Clear the timer since we're flushing now
+        if (this.flushTimer) {
+            clearTimeout(this.flushTimer);
+            this.flushTimer = null;
+        }
+
+        // Clean all logs: strip ANSI codes and remove timestamps
+        const cleanedLogs = logsToSend.map(log => {
+            const cleaned = cleanObject(log);
+            // Ensure we have the essential fields
+            // Note: filePath (from reportPath feature) is preserved in metadata as a separate JSON field
+            // It's not in the formatted message string, ensuring clean structured data for OpenObserve
+            return {
+                level: cleaned.level,
+                message: cleaned.message,
+                ...cleaned  // Includes all metadata fields like filePath, location, ID, etc.
+            };
+        });
+
+        const payload = JSON.stringify(cleanedLogs);
+
+        const options = {
+            hostname: this.hostname,
+            port: this.port,
+            path: this.apiPath,
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Content-Length': Buffer.byteLength(payload),
+                'Authorization': this.authHeader,
+            },
+        };
+
+        const req = this.protocol.request(options, (res) => {
+            let responseData = '';
+            res.on('data', (chunk) => {
+                responseData += chunk;
+            });
+            res.on('end', () => {
+                if (res.statusCode >= 200 && res.statusCode < 300) {
+                    // Success
+                } else {
+                    console.error(`OpenObserve API error: ${res.statusCode} - ${responseData}`);
+                }
+            });
+        });
+
+        req.on('error', (e) => {
+            console.error(`Failed to send logs to OpenObserve: ${e.message}`);
+        });
+
+        req.write(payload);
+        req.end();
     }
 
     /**
@@ -242,7 +321,7 @@ class OpenObserveTransport extends Transport {
             clearTimeout(this.flushTimer);
             this.flushTimer = null;
         }
-        this.flush();
+        this._flush();
     }
 }
 
