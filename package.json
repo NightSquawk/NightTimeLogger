@@ -44,5 +44,8 @@
     "@sentry/profiling-node": "^10.25.0",
     "dotenv": "^17.2.3",
     "jest": "^30.2.0"
+  },
+  "overrides": {
+    "glob": "^11.1.0"
   }
 }
