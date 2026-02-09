@@ -41,8 +41,8 @@
     "winston-transport": "^4.9.0"
   },
   "devDependencies": {
-    "@sentry/profiling-node": "^10.25.0",
-    "dotenv": "^17.2.3",
+    "@sentry/profiling-node": "^10.38.0",
+    "dotenv": "^17.2.4",
     "jest": "^30.2.0"
   },
   "overrides": {
