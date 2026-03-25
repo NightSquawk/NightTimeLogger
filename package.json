@@ -49,7 +49,7 @@
     "winston-transport": "^4.9.0"
   },
   "optionalDependencies": {
-    "pino-abstract-transport": "^2.0.0"
+    "pino-abstract-transport": "^3.0.0"
   },
   "peerDependencies": {
     "pino": ">=8.0.0"
