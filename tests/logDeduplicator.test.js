@@ -89,7 +89,10 @@ describe('LogDeduplicator Tests', () => {
         
         // Wait for window to expire
         await new Promise(resolve => setTimeout(resolve, 150));
-        
+
+        // Explicitly trigger cleanup so the test doesn't depend on interval timing
+        deduplicator.cleanup();
+
         // Should be cleaned up
         const stats = deduplicator.getStats();
         expect(stats.activeEntries).toBe(0);
