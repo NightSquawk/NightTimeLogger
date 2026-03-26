@@ -1,6 +1,6 @@
 'use strict';
 
-const build = require('pino-abstract-transport');
+const split = require('split2');
 const colors = require('../lib/colors');
 
 const levelColors = colors.console;
@@ -153,13 +153,16 @@ function formatLine(obj, opts = {}) {
  * @param {Object} opts - Transport options
  */
 module.exports = function (opts = {}) {
-  return build(async function (source) {
-    for await (const obj of source) {
-      const line = formatLine(obj, opts);
+  return split(function (line) {
+    let obj;
+    try {
+      obj = JSON.parse(line);
+    } catch {
       process.stdout.write(line + '\n');
+      return;
     }
-  }, {
-    parse: 'lines',
+    const formatted = formatLine(obj, opts);
+    process.stdout.write(formatted + '\n');
   });
 };
 
