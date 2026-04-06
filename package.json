@@ -60,8 +60,8 @@
     }
   },
   "devDependencies": {
-    "@sentry/profiling-node": "^10.38.0",
-    "dotenv": "^17.2.4",
+    "@sentry/profiling-node": "^10.47.0",
+    "dotenv": "^17.4.1",
     "jest": "^30.3.0"
   },
   "overrides": {
