@@ -42,8 +42,8 @@
     "test": "jest"
   },
   "dependencies": {
-    "@sentry/node": "^10.34.0",
-    "mysql2": "^3.16.1",
+    "@sentry/node": "^10.48.0",
+    "mysql2": "^3.22.0",
     "pg": "^8.17.1",
     "winston": "^3.19.0",
     "winston-transport": "^4.9.0"
