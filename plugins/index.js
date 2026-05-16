@@ -13,6 +13,7 @@ const plugins = {
     Discord     : require('./discord'),
     Teams       : require('./teams'),
     OpenObserve : require('./openobserve'),
+    OpenTelemetry : require('./otel'),
 
     // WIP SMSMail : require('./smsMail'),
 };
