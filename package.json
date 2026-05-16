@@ -12,6 +12,9 @@
     "logging",
     "logging utility",
     "mysql compatible",
+    "opentelemetry",
+    "otel",
+    "otlp",
     "pino transport",
     "sentry compatible",
     "syslog compatible",
@@ -52,10 +55,34 @@
     "split2": "^4.2.0"
   },
   "peerDependencies": {
-    "pino": ">=8.0.0"
+    "pino": ">=8.0.0",
+    "@opentelemetry/api": ">=1.9.0",
+    "@opentelemetry/api-logs": ">=0.50.0",
+    "@opentelemetry/sdk-logs": ">=0.50.0",
+    "@opentelemetry/exporter-logs-otlp-http": ">=0.50.0",
+    "@opentelemetry/resources": ">=1.20.0",
+    "@opentelemetry/semantic-conventions": ">=1.20.0"
   },
   "peerDependenciesMeta": {
     "pino": {
+      "optional": true
+    },
+    "@opentelemetry/api": {
+      "optional": true
+    },
+    "@opentelemetry/api-logs": {
+      "optional": true
+    },
+    "@opentelemetry/sdk-logs": {
+      "optional": true
+    },
+    "@opentelemetry/exporter-logs-otlp-http": {
+      "optional": true
+    },
+    "@opentelemetry/resources": {
+      "optional": true
+    },
+    "@opentelemetry/semantic-conventions": {
       "optional": true
     }
   },
