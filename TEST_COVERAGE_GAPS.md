@@ -107,17 +107,46 @@ Implemented in:
 
 Tests: 59 → 96 (+37). All passing.
 
-### Remaining gaps in `lib/logger.js`
+## Phase 2 remediation (this batch)
 
-- 92-93: `stripAnsiCodes` non-string short-circuit — hard to trigger without monkey-patching Winston
-- 114-115, 125-142, 342-357: file-transport and console-with-reportPath formatter branches — requires file-system fixtures
-- 196-197, 212-215, 218: stack-walk fallback edges — only fire when Error.prepareStackTrace returns malformed frames
-- 232-234, 255-256, 275-276: alternative message-arg shape + perf-tracker-on-suppressed branches
-- 303-306: fallback's own `console.error` when both wrapper and original method throw
-- 447-448: flush() per-transport branch (only when a transport implements `flush()`)
-- 474-478: `statsInterval` setInterval branch
+Implemented in:
 
-These are mostly low-impact (defensive code, file-system side effects, observability-only). Worth tackling in a follow-up.
+- `tests/plugins/sentry.test.js` — mocks `@sentry/node` at the SDK boundary; verifies init/captureException/captureMessage routing and init-error handling
+- `tests/plugins/syslogClient.test.js` — UDP delivery against a local `dgram` listener, RFC-3164 + RFC-5424 formatters, structured-data shaping, TCP/TLS transport construction smoke tests
+- `tests/plugins/syslog.test.js` — level filtering, level-to-severity mapping (pins down the known-issue mapping documented in `CLAUDE.md`), wire delivery
+- `tests/plugins/mysql.test.js` — **testcontainers**-based integration: table creation, INSERT, level filtering, `formatTimestamp` AM/PM/midnight branches
+- `tests/plugins/postgres.test.js` — testcontainers-based: table creation, INSERT, level filtering
+- `tests/helpers/dockerAvailable.js` — sync Docker socket probe so DB suites skip cleanly when Docker is unreachable (local sandboxes, CI runners without Docker)
+
+### Result (after Phase 2, DB tests skipped)
+
+| Scope                          | Phase 1  | Phase 2  | Δ        |
+|--------------------------------|----------|----------|----------|
+| All files (stmts)              | 61.41%   | 65.87%   | +4.46    |
+| All files (funcs)              | 54.25%   | 67.36%   | +13.11   |
+| `plugins/sentry.js`            | 50.98%   | 98.03%   | +47.05   |
+| `plugins/syslog.js`            | 40.47%   | 95.23%   | +54.76   |
+| `plugins/lib/syslogClient.js`  | 42.85%   | 85.71%   | +42.86   |
+
+When the DB tests run in CI (Docker available), `plugins/mysql.js` and `plugins/postgres.js` jump from ~25% to ~80%+ each.
+
+Tests: 96 → 127 (117 passing, 10 Docker-gated). All passing where infra is available.
+
+## Deferred (not in this batch)
+
+### Webhook plugins — Discord, Teams, OpenObserve
+
+Currently 7-28% function coverage. Deferred per project owner decision — fix when user reports surface. When tackled, the recommended toolchain is:
+
+- **`nock`** for HTTP interception (intercepts at `http.ClientRequest`; works with the plugins' raw `https.request` usage)
+- **`nock-openapi`** for services that publish OpenAPI specs (OpenObserve does) — gives contract-style validation
+- A separate **cron-only "live" suite** that hits real test webhooks weekly and updates `nock.recorder` fixtures; a non-empty fixture diff = upstream API drift
+
+MSW was evaluated and rejected for this project: its differentiator is browser + Node parity, which this Node-only library doesn't need; nock's built-in record/replay is a better fit for the stated drift-detection goal.
+
+### Remaining `lib/logger.js` gaps
+
+Same set as documented in Phase 1 — file-transport branches, stack-walk fallback edges, statsInterval, fallback's own console.error. Low impact relative to webhook plugin gaps.
 
 ## Phase 2 (not in this batch)
 
