@@ -88,12 +88,66 @@ describe('LogSampler Tests', () => {
         const sampler = new LogSampler({
             rateLimit: { error: { max: 5, window: 1000 } }
         });
-        
+
         expect(sampler.cleanupInterval).toBeDefined();
         sampler.destroy();
         expect(sampler.cleanupInterval).toBeNull();
         // Should not throw
         expect(() => sampler.shouldProcess('error')).not.toThrow();
+    });
+
+    test('cleanupRateLimits removes expired counters', () => {
+        const sampler = new LogSampler({
+            rateLimit: { error: { max: 5, window: 10 } }
+        });
+
+        sampler.shouldProcess('error');
+        expect(sampler.rateLimitCounters.has('error')).toBe(true);
+
+        // Backdate the window to force expiry
+        const counter = sampler.rateLimitCounters.get('error');
+        counter.windowStart = Date.now() - 1000;
+
+        sampler.cleanupRateLimits();
+        expect(sampler.rateLimitCounters.has('error')).toBe(false);
+
+        sampler.destroy();
+    });
+
+    test('cleanupRateLimits leaves non-expired counters in place', () => {
+        const sampler = new LogSampler({
+            rateLimit: { error: { max: 5, window: 60000 } }
+        });
+
+        sampler.shouldProcess('error');
+        sampler.cleanupRateLimits();
+        expect(sampler.rateLimitCounters.has('error')).toBe(true);
+
+        sampler.destroy();
+    });
+
+    test('resetStats clears accumulated counters', () => {
+        const sampler = new LogSampler({
+            rateLimit: { error: { max: 2, window: 1000 } },
+            sampling: { debug: 0.0 },
+        });
+
+        for (let i = 0; i < 5; i++) {
+            sampler.shouldProcess('error');
+            sampler.shouldProcess('debug');
+        }
+
+        const before = sampler.getStats();
+        expect(before.total.error).toBeGreaterThan(0);
+        expect(before.total.debug).toBeGreaterThan(0);
+
+        sampler.resetStats();
+        const after = sampler.getStats();
+        expect(after.total).toEqual({});
+        expect(after.sampled).toEqual({});
+        expect(after.rateLimited).toEqual({});
+
+        sampler.destroy();
     });
 });
 
