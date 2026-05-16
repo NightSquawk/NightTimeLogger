@@ -39,7 +39,9 @@ lib/logger.js (core — instance cache, color generation, method wrapping)
 
 **Plugin system:** Each plugin exports a `transport` class extending `winston-transport`. Configured via `plugins: [{name, enabled, config}]`. Failed plugins are logged and skipped, never crash the logger.
 
-**Logger caching:** Instances are cached by location name in a Map. Same location + same config returns cached instance. `skipCache: true` forces a new instance. Child loggers always skip cache.
+**Logger caching:** Instances are cached by location name in a Map. Same location + same config returns cached instance. `skipCache: true` forces a new instance. Child loggers always skip cache. Exception: if the cached instance lacks advanced features (sampling / rateLimit / deduplication) but the new config requests them, the cache entry is evicted and recreated (`lib/logger.js` `logger()` function).
+
+**Stack trace capture is synchronous.** `wrapLoggerMethod` captures `new Error().stack` *before* the `setImmediate` callback, then walks past internal Node.js frames (`_onTimeout`, `node:internal/*`, `node_modules/*`, etc.) to find the user's actual call site. Moving the capture inside the async callback would lose the caller. Keep this in mind when modifying `lib/logger.js`.
 
 **Log levels (lowest to highest priority):** `fatal(0)`, `error(1)`, `warn(2)`, `info(3)`, `debug(4)`, `trace(5)`, `internal(6)`.
 
@@ -53,7 +55,7 @@ lib/logger.js (core — instance cache, color generation, method wrapping)
 
 **The transport reuses `lib/colors.js` for level colors.** Utility ANSI codes (reset, dim, grey, etc.) are defined locally in the transport since `lib/colors.js` only exports level-keyed colors (`colors.console.info`, `.error`, etc.), not named utility codes.
 
-**`pino-abstract-transport` is an optional dependency.** Winston-only users don't install it. `pino` is an optional peer dependency.
+**`split2` is an `optionalDependencies` entry** (used by `transports/pino.js` to consume the Pino JSON stream) and `pino` is an optional peer dependency — Winston-only users don't install either.
 
 **Tests:** `tests/pino-transport.test.js` — tests `formatLine()`, `formatTimestamp()`, `padLevel()` directly (no Pino instance needed).
 
