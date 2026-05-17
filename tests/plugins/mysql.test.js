@@ -20,7 +20,7 @@ describeIfDocker('MySQL plugin (testcontainers)', () => {
     const TEST_TABLE = 'logs';
 
     beforeAll(async () => {
-        container = await new MySqlContainer()
+        container = await new MySqlContainer('mysql:8.0')
             .withDatabase(TEST_DATABASE)
             .withUsername('test')
             .withUserPassword('test')

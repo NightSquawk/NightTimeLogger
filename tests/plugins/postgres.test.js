@@ -19,7 +19,7 @@ describeIfDocker('Postgres plugin (testcontainers)', () => {
     const TEST_TABLE = 'logs';
 
     beforeAll(async () => {
-        container = await new PostgreSqlContainer()
+        container = await new PostgreSqlContainer('postgres:16-alpine')
             .withDatabase(TEST_DATABASE)
             .withUsername('test')
             .withPassword('test')
