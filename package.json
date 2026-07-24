@@ -45,7 +45,7 @@
     "test": "jest"
   },
   "dependencies": {
-    "@sentry/node": "^10.48.0",
+    "@sentry/node": "^10.68.0",
     "mysql2": "^3.22.0",
     "pg": "^8.17.1",
     "winston": "^3.19.0",
@@ -87,7 +87,7 @@
     }
   },
   "devDependencies": {
-    "@sentry/profiling-node": "^10.52.0",
+    "@sentry/profiling-node": "^10.68.0",
     "@testcontainers/mysql": "^11.14.0",
     "@testcontainers/postgresql": "^11.14.0",
     "dotenv": "^17.4.2",
