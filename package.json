@@ -87,12 +87,12 @@
     }
   },
   "devDependencies": {
-    "@sentry/profiling-node": "^10.52.0",
-    "@testcontainers/mysql": "^11.14.0",
-    "@testcontainers/postgresql": "^11.14.0",
+    "@sentry/profiling-node": "^10.71.0",
+    "@testcontainers/mysql": "^12.1.0",
+    "@testcontainers/postgresql": "^12.1.0",
     "dotenv": "^17.4.2",
-    "jest": "^30.4.2",
-    "testcontainers": "^11.14.0"
+    "jest": "^30.5.0",
+    "testcontainers": "^12.1.0"
   },
   "overrides": {
     "glob": "^11.1.0"
