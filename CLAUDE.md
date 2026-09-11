@@ -50,14 +50,30 @@ lib/logger.js (core — instance cache, color generation, method wrapping)
 `ntlogger/pino` provides a Pino-compatible transport and logger factory.
 
 **Files:**
-- `transports/pino.js` — Pino transport (consumes JSON stream, outputs NTL-formatted lines)
-- `pino.js` — Entry point for `require('ntlogger/pino')`, exports transport + `createLogger()`
+- `transports/pino.js` — Pino transport (consumes JSON stream, outputs NTL-formatted lines). Runs inside Pino's **worker thread**; must never require `lib/processHandlers.js`.
+- `pino.js` — Entry point for `require('ntlogger/pino')`. Exports the transport plus `createLogger()`, `isSilent()`, `installProcessHandlers()`, `drainLogger()`.
+- `lib/secretRedaction.js` — `createRedactor(opts)` → `{ redactString, redactObject, redact, isSensitiveKey }`. Key matching + secret-shape patterns. Never throws, never mutates.
+- `lib/pinoHooks.js` — `createPinoFeatures({ sampling, rateLimit, deduplication, levels, defaultLocation })` → a `hooks.logMethod` implementation backed by `lib/logSampler.js` / `lib/logDeduplicator.js`.
+- `lib/processHandlers.js` — `installProcessHandlers(logger, opts)` / `drainLogger(logger, timeout)`. Winston-free, opt-in only.
+
+**Pino allows exactly ONE `hooks.logMethod`.** `pino.js` composes them into a single function: redact the message string and interpolation args first, then delegate to `features.logMethod` when features are enabled, else `method.apply(this, args)`. Never register two hooks.
+
+**`formatters.log` runs BEFORE serializers** (see `_asJson` in `pino/lib/tools.js`), so a real `Error` under the `err` key is deliberately left untouched by the log formatter and redacted by a dedicated `serializers.err` instead — otherwise Pino reports `"type":"Object"`.
+
+**`formatters.bindings` only ever sees `base`.** Pino's `child()` resets it to the identity function, so `pino.js` overrides `child()` on the returned logger to redact child bindings.
+
+**`getStats`/`resetStats`/`close`/`child` are own, non-enumerable properties of the returned logger.** Pino's `child()` is `Object.create(parent)`, so children inherit them through the prototype chain — never attach to `Object.getPrototypeOf(logger)`, which is Pino's shared prototype.
+
+**Silent mode:** `opts.silent` (boolean) → `NTLOGGER_SILENT` (`1|true|yes` / `0|false|no`) → `NODE_ENV === 'test'`. Jest sets `NODE_ENV=test`, so any test asserting on `createLogger` output must pass `silent: false`.
 
 **The transport reuses `lib/colors.js` for level colors.** Utility ANSI codes (reset, dim, grey, etc.) are defined locally in the transport since `lib/colors.js` only exports level-keyed colors (`colors.console.info`, `.error`, etc.), not named utility codes.
 
 **`split2` is an `optionalDependencies` entry** (used by `transports/pino.js` to consume the Pino JSON stream) and `pino` is an optional peer dependency — Winston-only users don't install either.
 
-**Tests:** `tests/pino-transport.test.js` — tests `formatLine()`, `formatTimestamp()`, `padLevel()` directly (no Pino instance needed).
+**Tests:**
+- `tests/pino-transport.test.js` — `formatLine()`, `formatTimestamp()`, `padLevel()` directly (no Pino instance needed).
+- `tests/pino-createLogger.test.js` — `createLogger()` options, using the undocumented `opts.destination` passthrough to capture JSON in-process.
+- `tests/pino-consumer.test.js` — end-to-end through the real worker transport, in a child process.
 
 ## Testing Patterns
 
@@ -73,3 +89,15 @@ GitHub Actions (`.github/workflows/main.yml`): triggers on version tags → runs
 
 - Syslog plugin has incorrect log level mappings
 - Location tracking bug when calling across files (cache carries over)
+
+
+## In-the-Moment Activity Logging (Billing)
+
+NightTimeLogger is an NST-internal repo: work here defaults to **NST-internal** (`kimai_candidate: no`) but must still be logged - the NST master activity log is also the future-search index. If a task is a deliverable for a paying client or tenant, tag that client instead and set `kimai_candidate: yes`. **`{host}` is not optional and is not a label to leave literal** - determine it yourself before naming the file: run `hostname` (Linux/macOS) or `$env:COMPUTERNAME` (Windows PowerShell) / `echo %COMPUTERNAME%` (cmd), lowercase the result, keep only the part before the first dot, and replace anything that isn't `[a-z0-9_-]` with a dash. This applies even though this repo lives outside the NST vault - the inbox is shared across all NightSquawk repos and machines, and a stub filename with no host segment is itself a defect. Canonical SOP: `C:\Users\reyes\NightSquawk Tech\in-the-moment-logging-sop.md` (NST Rule 11).
+
+Substantive = a feature, fix, refactor, build or packaging pass, release, deployment, or significant debugging session. Skip pure Q&A and code reading.
+
+- **At task start:** spawn a **background** logging subagent (never block the real work) that writes a stub entry - one file per task - to `$NST_ACTIVITY_INBOX/YYYY-MM-DD-HHMM-{host}-{slug}.md` (Linux `/mnt/data/work/.activity-log-inbox/`; Windows `<data-drive>:\work\.activity-log-inbox\`) with frontmatter `client: NST-internal`, `status: stub`, `kimai_candidate: no`.
+- **At task end:** complete the entry (`status: complete`): what was done, commit hashes + subjects, branch, VERSION or changelog bump if any, build artifacts, deploys, and any endpoints or systems touched.
+- **Single write** to the NST inbox only. Never create activity-log files inside this repo, and never append `activity-log-YYYY-MM.md` directly - the single-writer consolidation pass owns the monthly logs.
+- Automatic breadcrumbs are only a safety net: Claude writes `breadcrumbs-YYYY-MM.log` via the global `SessionEnd` hook; Codex writes `codex-breadcrumbs-YYYY-MM.log` via the global `Stop` hook. The subagent entry is what makes the work readable for billing. Short tasks may skip the stub and write one complete entry at the end.

@@ -3,7 +3,16 @@
  * @description Initializes any plugins required by the application.
  */
 
-// Available plugins
+// Available plugins.
+//
+// Each entry is a *thunk*, not a module: the `require()` only runs when the
+// plugin is actually requested by a config entry. Several plugins depend on
+// optional peer dependencies (`@sentry/node`, `mysql2`, `pg`, the
+// OpenTelemetry packages) that consumers are not required to install, so
+// resolving every module at load time would break `require('ntlogger')` for
+// everyone who does not use those backends. Resolution happens inside the
+// per-plugin try/catch in initPlugins(), which means a missing optional
+// dependency disables only that one plugin.
 const plugins = {
     Sentry      : () => require('./sentry'),
     MySQL       : () => require('./mysql'),
@@ -26,9 +35,15 @@ function checkPluginAvailability(pluginName) {
     }
 }
 
+/**
+ * Lazily resolves a plugin module and returns its transport class.
+ * Any error thrown here (including a missing optional peer dependency)
+ * is reported and skipped by the caller rather than crashing the logger.
+ */
 function getPluginTransport(pluginName) {
     checkPluginAvailability(pluginName);
-    return plugins[pluginName]().transport;
+    const pluginModule = plugins[pluginName]();
+    return pluginModule && pluginModule.transport;
 }
 
 /**

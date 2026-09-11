@@ -1,10 +1,33 @@
 /**
  * @file /plugins/sentry.js
  * @description Initializes the Sentry SDK for error tracking and defines a custom Winston transport.
+ *
+ * `@sentry/node` is an optional peer dependency. Install it when using this plugin:
+ *   npm install @sentry/node
  */
 
 const Transport = require('winston-transport');
-const Sentry = require("@sentry/node");
+
+/**
+ * Requires an optional peer dependency, translating only that package's
+ * MODULE_NOT_FOUND into an actionable install message. Any other failure
+ * (including a missing module *inside* the package) propagates unchanged.
+ * @param {string} moduleId - The module specifier to require.
+ * @param {string} packageName - The npm package to install.
+ * @returns {*} The resolved module.
+ */
+function requirePeer(moduleId, packageName) {
+    try {
+        return require(moduleId);
+    } catch (err) {
+        if (err && err.code === 'MODULE_NOT_FOUND' && String(err.message).includes(`'${moduleId}'`)) {
+            throw new Error(`ntlogger Sentry plugin requires '${packageName}'. Install it with: npm install ${packageName}`);
+        }
+        throw err;
+    }
+}
+
+const Sentry = requirePeer('@sentry/node', '@sentry/node');
 
 /**
  * Custom Winston transport for sending logs to Sentry.

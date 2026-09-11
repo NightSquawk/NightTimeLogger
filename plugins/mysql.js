@@ -1,10 +1,33 @@
 /**
  * @file /plugins/mysql.js
  * @description Stores logs in MySQL database.
+ *
+ * `mysql2` is an optional peer dependency. Install it when using this plugin:
+ *   npm install mysql2
  */
 
 const Transport = require('winston-transport');
-const mysql = require('mysql2/promise');
+
+/**
+ * Requires an optional peer dependency, translating only that package's
+ * MODULE_NOT_FOUND into an actionable install message. Any other failure
+ * (including a missing module *inside* the package) propagates unchanged.
+ * @param {string} moduleId - The module specifier to require.
+ * @param {string} packageName - The npm package to install.
+ * @returns {*} The resolved module.
+ */
+function requirePeer(moduleId, packageName) {
+    try {
+        return require(moduleId);
+    } catch (err) {
+        if (err && err.code === 'MODULE_NOT_FOUND' && String(err.message).includes(`'${moduleId}'`)) {
+            throw new Error(`ntlogger MySQL plugin requires '${packageName}'. Install it with: npm install ${packageName}`);
+        }
+        throw err;
+    }
+}
+
+const mysql = requirePeer('mysql2/promise', 'mysql2');
 
 
 

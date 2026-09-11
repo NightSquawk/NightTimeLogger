@@ -50,6 +50,31 @@ const STATUS_COLORS = {
 };
 
 /**
+ * Structured context fields rendered as a compact `{k=v ...}` suffix right
+ * after the module label. Order here is the render order.
+ */
+const CONTEXT_KEYS = [
+  'tenantId',
+  'userId',
+  'correlationId',
+  'traceId',
+  'spanId',
+  'jobId',
+  'agentUuid',
+  'commandId',
+];
+
+/**
+ * Boilerplate messages emitted by pino-http/Fastify for the request-start
+ * line. They carry no information once the method and URL are rendered.
+ */
+const GENERIC_REQUEST_MESSAGES = new Set(['incoming request', 'request received']);
+
+// Defaults for the in-flight request map. Both are overridable per transport.
+const DEFAULT_MAX_INFLIGHT_REQUESTS = 1000;
+const DEFAULT_INFLIGHT_TTL_MS = 60000;
+
+/**
  * Format a timestamp to YYYY-MM-DD HH:mm:ss (NTL style).
  */
 function formatTimestamp(epoch) {
@@ -71,13 +96,107 @@ function padLevel(name) {
 }
 
 /**
+ * Bounded map of in-flight HTTP requests.
+ *
+ * pino-http/Fastify split a request across two lines: the request-start line
+ * carries `req.method` / `req.url`, the completion line carries only
+ * `res.statusCode` and `responseTime`. Remembering the start line lets the
+ * completion line render `METHOD /path — STATUS (Nms)`.
+ *
+ * A request that never completes (aborted socket, crashed handler) would leak
+ * an entry forever, so entries expire by age and the map is capped. Both
+ * sweeps are lazy — no timers, nothing that can keep a process alive.
+ *
+ * @param {Object} opts
+ * @param {number} [opts.maxInflightRequests=1000] Hard cap on tracked requests.
+ * @param {number} [opts.inflightTtlMs=60000] Max age of a tracked request.
+ */
+function createRequestTracker(opts = {}) {
+  const max = Number.isFinite(opts.maxInflightRequests) && opts.maxInflightRequests > 0
+    ? Math.floor(opts.maxInflightRequests)
+    : DEFAULT_MAX_INFLIGHT_REQUESTS;
+  const ttl = Number.isFinite(opts.inflightTtlMs) && opts.inflightTtlMs > 0
+    ? opts.inflightTtlMs
+    : DEFAULT_INFLIGHT_TTL_MS;
+
+  // Map preserves insertion order, and entries are always (re)inserted at the
+  // tail, so the head is always the oldest entry.
+  const entries = new Map();
+
+  function prune(now = Date.now()) {
+    for (const [key, value] of entries) {
+      if (now - value.at < ttl) break;
+      entries.delete(key);
+    }
+    while (entries.size > max) {
+      const oldest = entries.keys().next();
+      if (oldest.done) break;
+      entries.delete(oldest.value);
+    }
+  }
+
+  return {
+    /**
+     * Remember an in-flight request. Re-tracking an id refreshes its position.
+     */
+    track(id, method, url, now = Date.now()) {
+      if (!id) return;
+      if (entries.has(id)) entries.delete(id);
+      entries.set(id, { method: method || '', url: url || '', at: now });
+      prune(now);
+    },
+    /**
+     * Look up and forget a tracked request.
+     * @returns {{method: string, url: string}|null}
+     */
+    take(id) {
+      if (!id) return null;
+      const entry = entries.get(id);
+      if (!entry) return null;
+      entries.delete(id);
+      return { method: entry.method, url: entry.url };
+    },
+    prune,
+    get size() {
+      return entries.size;
+    },
+    get maxInflightRequests() {
+      return max;
+    },
+    get inflightTtlMs() {
+      return ttl;
+    },
+  };
+}
+
+/**
+ * Render the structured context suffix, e.g. `{tenantId=t1 correlationId=c9}`.
+ * Only keys that are actually present (and non-empty) are rendered.
+ *
+ * @returns {string} Dim-wrapped suffix, or '' when no context keys are present.
+ */
+function formatContext(obj) {
+  const pairs = [];
+  for (const key of CONTEXT_KEYS) {
+    const value = obj[key];
+    if (value === undefined || value === null || value === '') continue;
+    pairs.push(`${key}=${typeof value === 'object' ? JSON.stringify(value) : value}`);
+  }
+  if (pairs.length === 0) return '';
+  return `${DIM}{${pairs.join(' ')}}${RESET}`;
+}
+
+/**
  * Format a single Pino log object into an NTL-style string.
  *
  * @param {Object} obj - Pino JSON log object
  * @param {Object} opts - Transport options
+ * @param {Object} [tracker] - Optional in-flight request tracker (see
+ *   createRequestTracker). When omitted, request/response pairing is skipped
+ *   and only inline `req` data is used.
  * @returns {string} Formatted log line
  */
-function formatLine(obj, opts = {}) {
+function formatLine(obj, opts = {}, tracker = null) {
   const parts = [];
 
   // 1. Timestamp
@@ -100,19 +219,44 @@ function formatLine(obj, opts = {}) {
     parts.push(`${GREEN}[${location}]${RESET}:`);
   }
 
-  // 5. Message
+  // 5. Structured context — {tenantId=… correlationId=…}
+  const context = formatContext(obj);
+  if (context) {
+    parts.push(context);
+  }
+
+  // 6. Message
   let msg = obj.msg || obj.message || '';
 
-  // 6. HTTP request completion — format as: METHOD /path — STATUS (TIMEms)
-  if (obj.res && obj.responseTime !== undefined) {
+  if (obj.req && !obj.res) {
+    // Request start — remember it so the completion line can name the route.
+    const method = (obj.req.method) || '';
+    const url = (obj.req.url) || '';
+    if (tracker && (method || url)) {
+      tracker.track(id, method, url);
+    }
+    if (method && url) {
+      msg = GENERIC_REQUEST_MESSAGES.has(msg) || !msg
+        ? `${method} ${url}`
+        : `${method} ${url} ${GREY}—${RESET} ${msg}`;
+    }
+  } else if (obj.res && obj.responseTime !== undefined) {
+    // 7. HTTP request completion — format as: METHOD /path — STATUS (TIMEms)
     const status = obj.res.statusCode;
     const statusGroup = Math.floor(status / 100);
     const statusColor = STATUS_COLORS[statusGroup] || '';
-    const method = (obj.req && obj.req.method) || '';
-    const url = (obj.req && obj.req.url) || '';
     const time = typeof obj.responseTime === 'number'
       ? obj.responseTime.toFixed(1)
       : obj.responseTime;
+
+    // Inline req wins; otherwise fall back to the tracked request-start line.
+    let method = (obj.req && obj.req.method) || '';
+    let url = (obj.req && obj.req.url) || '';
+    const tracked = tracker ? tracker.take(id) : null;
+    if (!(method && url) && tracked) {
+      method = tracked.method;
+      url = tracked.url;
+    }
 
     if (method && url) {
       msg = `${method} ${url} — ${statusColor}${status}${RESET} ${GREY}(${time}ms)${RESET}`;
@@ -123,7 +267,7 @@ function formatLine(obj, opts = {}) {
     }
   }
 
-  // 7. Error stack traces
+  // 8. Error stack traces
   if (obj.err) {
     const stack = obj.err.stack || obj.err.message || '';
     if (stack) {
@@ -161,10 +305,15 @@ function formatLine(obj, opts = {}) {
  *
  * Options:
  *   - defaultModule: Default location label when obj.module is not set (e.g., 'API')
+ *   - colorize: Set to false to strip all ANSI codes from the output
+ *   - maxInflightRequests: Cap on remembered in-flight requests (default 1000)
+ *   - inflightTtlMs: Max age of a remembered in-flight request (default 60000)
  *
  * @param {Object} opts - Transport options
  */
 module.exports = function (opts = {}) {
+  const tracker = createRequestTracker(opts);
+
   const stream = split(function (line) {
     let obj;
     try {
@@ -173,7 +322,7 @@ module.exports = function (opts = {}) {
       writeOutput(line + '\n');
       return;
     }
-    const formatted = formatLine(obj, opts);
+    const formatted = formatLine(obj, opts, tracker);
     writeOutput(formatted + '\n');
   });
   // The worker consumes only the writable side; drain the readable side so
@@ -194,3 +343,6 @@ module.exports = function (opts = {}) {
 module.exports.formatLine = formatLine;
 module.exports.formatTimestamp = formatTimestamp;
 module.exports.padLevel = padLevel;
+module.exports.formatContext = formatContext;
+module.exports.createRequestTracker = createRequestTracker;
+module.exports.CONTEXT_KEYS = CONTEXT_KEYS;

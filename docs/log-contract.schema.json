@@ -1,0 +1,139 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nightsquawk.tech/schemas/log-contract/v1.json",
+  "title": "NightSquawk Cross-Language Log Contract — single log line",
+  "description": "One NDJSON log record. See docs/log-contract.md. Emitters MUST supply exactly one of `time` (epoch milliseconds) or `timestamp` (ISO-8601); sinks MUST accept either.",
+  "type": "object",
+  "contractVersion": 1,
+  "$defs": {
+    "contractVersion": {
+      "const": 1
+    },
+    "traceId": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{32}$",
+      "description": "W3C trace id — exactly 32 lowercase hex characters."
+    },
+    "spanId": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{16}$",
+      "description": "W3C span id — exactly 16 lowercase hex characters."
+    },
+    "error": {
+      "type": "object",
+      "description": "Pino `err` serializer shape. Python maps exc_info into this.",
+      "properties": {
+        "type": { "type": "string" },
+        "name": { "type": "string" },
+        "message": { "type": "string" },
+        "stack": { "type": "string" },
+        "code": { "type": ["string", "integer"] },
+        "cause": { "$ref": "#/$defs/error" }
+      },
+      "required": ["message"],
+      "additionalProperties": true
+    }
+  },
+  "properties": {
+    "time": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Event time, epoch milliseconds. Pino's default."
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Alternate event time for non-Pino emitters: ISO-8601 with explicit offset."
+    },
+    "level": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 100,
+      "enum": [5, 10, 20, 30, 40, 50, 60],
+      "description": "Pino numbering: 5=internal, 10=trace, 20=debug, 30=info, 40=warn, 50=error, 60=fatal."
+    },
+    "levelName": {
+      "type": "string",
+      "enum": ["fatal", "error", "warn", "info", "debug", "trace", "internal"],
+      "description": "Optional; recommended for non-Pino emitters. Pino emitters omit it and sinks derive it from `level`."
+    },
+    "msg": {
+      "type": "string",
+      "maxLength": 4096,
+      "description": "Stable template text. Variable parts belong in fields."
+    },
+    "module": {
+      "type": "string",
+      "description": "Logical component. Node: createLogger({ module }). Python: <mode>.<logger name>."
+    },
+    "service": {
+      "type": "string",
+      "description": "Process/service name. Maps to OTLP resource attribute service.name."
+    },
+    "serviceVersion": {
+      "type": "string",
+      "description": "Maps to OTLP resource attribute service.version."
+    },
+    "pid": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "hostname": {
+      "type": "string",
+      "description": "Maps to OTLP resource attribute host.name."
+    },
+    "env": {
+      "type": "string"
+    },
+
+    "tenantId": { "type": "string" },
+    "userId": { "type": ["string", "null"] },
+    "actorName": { "type": ["string", "null"] },
+    "sessionId": { "type": "string" },
+    "correlationId": { "type": "string" },
+    "traceId": { "$ref": "#/$defs/traceId" },
+    "spanId": { "$ref": "#/$defs/spanId" },
+    "jobId": { "type": "string" },
+    "attempt": { "type": "integer", "minimum": 0 },
+    "executor": { "type": "string" },
+    "impersonatorUserId": { "type": "string" },
+    "agentUuid": { "type": "string" },
+    "commandId": { "type": "string" },
+    "collectionCycleId": { "type": "string" },
+    "reqId": { "type": "string" },
+    "requestId": {
+      "type": "string",
+      "description": "Accepted alias of reqId. Emit one, not both; reqId preferred."
+    },
+
+    "err": { "$ref": "#/$defs/error" },
+
+    "req": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "method": { "type": "string" },
+        "url": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "res": {
+      "type": "object",
+      "properties": {
+        "statusCode": { "type": "integer", "minimum": 100, "maximum": 599 }
+      },
+      "additionalProperties": true
+    },
+    "responseTime": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Milliseconds; fractional allowed."
+    }
+  },
+  "required": ["level", "msg"],
+  "anyOf": [
+    { "required": ["time"] },
+    { "required": ["timestamp"] }
+  ],
+  "additionalProperties": true
+}

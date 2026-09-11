@@ -2,6 +2,36 @@
 
 NightTimeLogger is a powerful and flexible logging utility with various plugins to extend its functionality. This README provides an overview of the available plugins and instructions on how to set them up.
 
+## Required Plugin Entry Fields
+
+Every entry in the `plugins` array **must** supply all three of the following. The
+loader silently skips a plugin whose `enabled` is missing/falsy, and reports and skips
+a plugin whose `config` is missing or is not an object:
+
+| Field | Required | Notes |
+| --- | --- | --- |
+| `name` | yes | Must be one of `Sentry`, `MySQL`, `Postgres`, `Jest`, `Syslog`, `Discord`, `Teams`, `OpenObserve`, `OpenTelemetry`. Unknown names are reported and skipped. |
+| `enabled` | yes | Must be `true`. A plugin with `enabled: false` (or omitted) is skipped. |
+| `config` | yes | Must be an object, even if empty (`config: {}`). |
+
+## Optional Peer Dependencies
+
+The heavier plugin backends are **optional peer dependencies**: installing `ntlogger`
+does not pull them in, so projects that do not use those plugins stay lean. Install the
+peer for each plugin you actually enable:
+
+| Plugin | Install |
+| --- | --- |
+| Sentry | `npm install @sentry/node` |
+| MySQL | `npm install mysql2` |
+| Postgres | `npm install pg` |
+| OpenTelemetry | `npm install @opentelemetry/api @opentelemetry/api-logs @opentelemetry/sdk-logs @opentelemetry/exporter-logs-otlp-http @opentelemetry/resources @opentelemetry/semantic-conventions` |
+| Discord, Teams, OpenObserve, Syslog, Jest | none - no extra packages required |
+
+If the peer is missing, the plugin loader reports an actionable error naming the
+package and the install command, then skips that plugin. Every other plugin in the
+same configuration still loads and the logger keeps working.
+
 ## Available Plugins
 
 ### 1. Discord
@@ -9,10 +39,13 @@ NightTimeLogger is a powerful and flexible logging utility with various plugins 
 
 ![Discord Plugin Output](https://github.com/NightSquawk/NightTimeLogger/blob/main/images/plugins/discord/pluginDiscordOutput.png)
 
+**Peer dependency:** none.
+
 **Setup:**
 ```javascript
 {
     name: 'Discord',
+    enabled: true,
     config: {
         webhookUrl: process.env.DISCORD_WEBHOOK_URL
         avatarUrl: process.env.DISCORD_AVATAR_URL || 'https://pbs.twimg.com/profile_images/997535493624508416/V7Ed1k2o_400x400.jpg',
@@ -26,11 +59,15 @@ NightTimeLogger is a powerful and flexible logging utility with various plugins 
 ### 2. Sentry
 Description: Initializes the Sentry SDK for error tracking and defines a custom Winston transport for capturing and sending error logs to Sentry.
 
+**Peer dependency:** `npm install @sentry/node` (plus `@sentry/profiling-node` if you use
+`nodeProfilingIntegration()`).
+
 Setup:
 
 ``` javascript
 {
     name: 'Sentry',
+    enabled: true,
     config: {
         dsn: process.env.SENTRY_DSN || null,
         release: process.env.SENTRY_RELEASE || null,
@@ -54,11 +91,14 @@ Setup:
 ### 3. MySQL
 Description: Stores logs in a MySQL database, allowing you to persist log messages and analyze them using SQL queries.
 
+**Peer dependency:** `npm install mysql2`.
+
 Setup:
 
 ``` javascript
 {
     name: 'MySQL',
+    enabled: true,
     config: {
         host: process.env.MYSQL_DB_HOST || 'localhost',
         port: process.env.MYSQL_DB_PORT || 3306,
@@ -73,11 +113,16 @@ Setup:
 ### 4. Jest
 Description: Stores log messages in memory for testing purposes, particularly useful when running tests with Jest.
 
-Setup:
+**Peer dependency:** none.
+
+Setup (`enabled` and an object `config` are both required, even though the Jest
+transport takes no options):
 
 ``` javascript
 {
     name: 'Jest',
+    enabled: true,
+    config: {},
 }
 ```
 
@@ -87,11 +132,14 @@ Description: Sends logs to a Syslog server using a custom Syslog client. This al
 ![Syslog Plugin Output](https://github.com/NightSquawk/NightTimeLogger/blob/main/images/plugins/syslog/pluginSyslogOutput.png)
 
 
+**Peer dependency:** none.
+
 Setup:
 
 ``` javascript
 {
     name: 'Syslog',
+    enabled: true,
     config: {
         host: process.env.SYSLOG_HOST || 'localhost',
         port: process.env.SYSLOG_PORT || 514,
@@ -111,11 +159,14 @@ Setup:
 ![Teams Mixed Object Plugin Output](https://github.com/NightSquawk/NightTimeLogger/blob/main/images/plugins/teams/pluginTeamsMixedOutput.png)
 
 
+**Peer dependency:** none.
+
 **Setup:**
 
 ``` javascript
 {
     name: 'Teams',
+    enabled: true,
         config: {
         webhookUrl: process.env.TEAMS_WEBHOOK_URL || "im not leaking my webhook url again",
             level: process.env.LOG_LEVEL || "info",
@@ -236,11 +287,14 @@ log.error('Error message',[
 ### 7. OpenObserve
 **Description:** Sends logs to OpenObserve, an open-source observability platform. This plugin automatically strips ANSI escape codes, removes timestamps, and sends clean structured JSON logs to OpenObserve's HTTP API with batching support for improved performance.
 
+**Peer dependency:** none.
+
 **Setup:**
 
 ```javascript
 {
     name: 'OpenObserve',
+    enabled: true,
     config: {
         host: process.env.OPENOBSERVE_HOST || 'http://localhost:5080',
         organization: process.env.OPENOBSERVE_ORGANIZATION || 'default',
@@ -261,6 +315,60 @@ log.error('Error message',[
 - Clean structured JSON output suitable for OpenObserve ingestion
 - Support for all log levels with configurable filtering
 
+### 8. OpenTelemetry
+**Description:** Sends logs to an OpenTelemetry collector as OTLP log records. Maps ntlogger levels to OTel `SeverityNumber`/`SeverityText`, strips ANSI colour codes, flattens metadata into OTel attributes (nested objects are JSON-stringified), and automatically attaches `trace_id`/`span_id` from the active span when `@opentelemetry/api` is installed.
+
+**Peer dependency:** the OpenTelemetry packages are optional peers:
+
+```bash
+npm install @opentelemetry/api @opentelemetry/api-logs @opentelemetry/sdk-logs \
+            @opentelemetry/exporter-logs-otlp-http @opentelemetry/resources \
+            @opentelemetry/semantic-conventions
+```
+
+If your application already builds its own OTel pipeline, pass an existing
+`loggerProvider` and none of the SDK packages are required by this plugin.
+
+**Setup:**
+
+```javascript
+{
+    name: 'OpenTelemetry',
+    enabled: true,
+    config: {
+        // --- Collector endpoint (used when no `exporter`/`loggerProvider` is given) ---
+        url: process.env.OTEL_EXPORTER_OTLP_LOGS_ENDPOINT || 'http://localhost:4318/v1/logs',
+        headers: { 'x-api-key': process.env.OTEL_API_KEY },
+        concurrencyLimit: 10,        // Optional: max in-flight export requests
+        timeoutMillis: 10000,        // Optional: export request timeout
+
+        // --- Resource attributes ---
+        serviceName: 'my-service',   // Optional: sets service.name
+        serviceVersion: '1.2.3',     // Optional: sets service.version
+        resourceAttributes: { 'deployment.environment': process.env.NODE_ENV },
+        // resource: myResource,     // Optional: a pre-built OTel Resource (wins over the above)
+
+        // --- Pipeline ---
+        // exporter: myExporter,         // Optional: bring your own exporter (gRPC/protobuf/etc.)
+        // loggerProvider: myProvider,   // Optional: reuse an existing LoggerProvider
+        useSimpleProcessor: false,       // Optional: SimpleLogRecordProcessor instead of Batch
+        processorOptions: {},            // Optional: passed to the processor constructor
+
+        // --- Behaviour ---
+        level: 'trace',              // Optional: minimum level to export (default: 'trace')
+        includeTraceContext: true,   // Optional: attach trace_id/span_id (default: true)
+        stripAnsi: true,             // Optional: strip ANSI codes (default: true)
+        instrumentationName: 'ntlogger',  // Optional: OTel instrumentation scope name
+        instrumentationVersion: '3.0.0', // Optional: OTel instrumentation scope version
+    },
+}
+```
+
+**Notes:**
+- `level` uses ntlogger priorities (`fatal` 0 -> `internal` 6). The default `'trace'` exports everything except `internal`; use `'internal'` to export absolutely everything.
+- If neither `loggerProvider` nor `exporter` is supplied and the SDK/exporter packages are not installed, the transport constructor throws a message naming the packages to install - the loader reports it and skips only this plugin.
+- The plugin shuts the provider down on `close()` only when it created the provider itself; a caller-supplied `loggerProvider` is left alone.
+
 ### Example Logger Configuration
 Here is an example configuration for NightTimeLogger using multiple plugins:
 
@@ -272,6 +380,7 @@ let config = {
     plugins: [
         {
             name: 'Discord',
+            enabled: true,
             config: {
                 webhookUrl: process.env.DISCORD_WEBHOOK_URL,
                 avatarUrl: process.env.DISCORD_AVATAR_URL,
@@ -282,6 +391,7 @@ let config = {
         },
         {
             name: 'Sentry',
+            enabled: true,
             config: {
                 dsn: process.env.SENTRY_DSN,
                 release: process.env.SENTRY_RELEASE,
@@ -291,6 +401,7 @@ let config = {
         },
         {
             name: 'MySQL',
+            enabled: true,
             config: {
                 host: process.env.MYSQL_DB_HOST,
                 port: process.env.MYSQL_DB_PORT || 3306,
@@ -302,9 +413,12 @@ let config = {
         },
         {
             name: 'Jest',
+            enabled: true,
+            config: {},
         },
         {
             name: 'Syslog',
+            enabled: true,
             config: {
                 host: process.env.SYSLOG_HOST || 'localhost',
                 port: process.env.SYSLOG_PORT || 514,
@@ -315,6 +429,7 @@ let config = {
         },
         {
             name: 'OpenObserve',
+            enabled: true,
             config: {
                 host: process.env.OPENOBSERVE_HOST || 'http://localhost:5080',
                 organization: process.env.OPENOBSERVE_ORGANIZATION || 'default',
@@ -326,9 +441,22 @@ let config = {
                 level: 'info',
             },
         },
+        {
+            name: 'OpenTelemetry',
+            enabled: true,
+            config: {
+                url: process.env.OTEL_EXPORTER_OTLP_LOGS_ENDPOINT || 'http://localhost:4318/v1/logs',
+                serviceName: 'MyAppLogger',
+                level: 'info',
+            },
+        },
     ],
 };
 ```
+
+Every entry above sets `enabled: true` and an object `config` - both are mandatory.
+Plugins whose peer dependency is not installed (`Sentry`, `MySQL`, `Postgres`,
+`OpenTelemetry`) are reported and skipped without affecting the rest of the list.
 
 ### Conclusion
 The NightTimeLogger is highly customizable and supports various plugins for different logging requirements. By leveraging these plugins, you can easily integrate logging into your existing infrastructure, whether it be storing logs in databases, sending them to monitoring tools like Sentry, or receiving alerts directly in Discord.

@@ -53,6 +53,66 @@ describe('Pino transport stream', () => {
         expect(joined).toContain('not-json-at-all');
     });
 
+    test('pairs request-start and completion lines across the stream', async () => {
+        const stream = transportFactory({ defaultModule: 'API', colorize: false });
+        stream.write(JSON.stringify({
+            level: 30,
+            time: Date.now(),
+            msg: 'incoming request',
+            reqId: 'stream-1',
+            req: { method: 'GET', url: '/api/v1/health' },
+        }) + '\n');
+        stream.write(JSON.stringify({
+            level: 30,
+            time: Date.now(),
+            msg: 'request completed',
+            reqId: 'stream-1',
+            res: { statusCode: 200 },
+            responseTime: 3.21,
+        }) + '\n');
+        await drain(stream);
+
+        const joined = writes.join('');
+        expect(joined).toContain('GET /api/v1/health');
+        expect(joined).toContain('GET /api/v1/health — 200 (3.2ms)');
+    });
+
+    test('each transport instance keeps its own in-flight map', async () => {
+        const first = transportFactory({ colorize: false });
+        first.write(JSON.stringify({
+            level: 30, time: Date.now(), reqId: 'shared',
+            req: { method: 'GET', url: '/first' },
+        }) + '\n');
+        await drain(first);
+
+        const second = transportFactory({ colorize: false });
+        second.write(JSON.stringify({
+            level: 30, time: Date.now(), reqId: 'shared', msg: 'request completed',
+            res: { statusCode: 200 }, responseTime: 1,
+        }) + '\n');
+        await drain(second);
+
+        const joined = writes.join('');
+        expect(joined).not.toContain('/first — 200');
+        expect(joined).toContain('request completed — 200 (1.0ms)');
+    });
+
+    test('renders the structured context suffix through the stream', async () => {
+        const stream = transportFactory({ defaultModule: 'API', colorize: false });
+        stream.write(JSON.stringify({
+            level: 30,
+            time: Date.now(),
+            msg: 'context line',
+            tenantId: 't-42',
+            correlationId: 'corr-7',
+        }) + '\n');
+        await drain(stream);
+
+        const joined = writes.join('');
+        expect(joined).toContain('{tenantId=t-42 correlationId=corr-7}');
+        expect(joined).toContain('context line');
+    });
+
     test('HTTP completion without req.method/url falls back to msg + status', () => {
         const { formatLine } = require('../transports/pino');
         const line = formatLine({
