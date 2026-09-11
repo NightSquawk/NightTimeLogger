@@ -26,6 +26,8 @@ function dockerAvailable() {
     return false;
 }
 
-const describeIfDocker = dockerAvailable() ? describe : describe.skip;
+const available = dockerAvailable();
+if (process.env.REQUIRE_DOCKER_TESTS === '1' && !available) throw new Error('Docker integration tests are required but Docker is unavailable');
+const describeIfDocker = available ? describe : describe.skip;
 
 module.exports = { dockerAvailable, describeIfDocker };

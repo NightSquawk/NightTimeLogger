@@ -13,7 +13,7 @@ class SyslogClient {
         this.port = opts.port || 514;
         this.protocol = opts.protocol || 'UDP'; // 'UDP', 'TCP', 'TLS'
         this.rfc = opts.rfc || 'RFC-5424'; // 'RFC-3164', 'RFC-5424'
-        this.facility = opts.facility || 1; // Default to user-level messages
+        this.facility = opts.facility ?? 1; // Default to user-level messages
         this.appName = opts.appName || 'NTLogger';
         this.hostname = opts.hostname || require('os').hostname();
         this.transport = null;
@@ -52,12 +52,13 @@ class SyslogClient {
      * @param {string} message - The log message.
      * @param {object} [meta] - Additional metadata for RFC-5424 structured data.
      */
-    send(severity, message, meta = {}) {
+    send(severity, message, meta = {}, callback = () => {}) {
         const formattedMessage = this.formatMessage(severity, message, meta);
         if (this.protocol === 'UDP') {
-            this.transport.send(Buffer.from(formattedMessage), 0, formattedMessage.length, this.port, this.host);
+            const buffer = Buffer.from(formattedMessage);
+            this.transport.send(buffer, 0, buffer.length, this.port, this.host, callback);
         } else {
-            this.transport.write(formattedMessage + '\n');
+            this.transport.write(formattedMessage + '\n', callback);
         }
     }
 
@@ -101,12 +102,21 @@ class SyslogClient {
      * Closes the transport connection.
      */
     close() {
-        if (this.transport && (this.protocol === 'TCP' || this.protocol === 'TLS')) {
-            this.transport.end();
-        } else if (this.protocol === 'UDP') {
-            this.transport.close();
+        if (!this.closePromise) {
+            this.closePromise = new Promise((resolve, reject) => {
+                try {
+                    if (this.protocol === 'UDP') this.transport.close(resolve);
+                    else if (this.transport.destroyed) resolve();
+                    else this.transport.end(resolve);
+                } catch (error) {
+                    if (error.code === 'ERR_SOCKET_DGRAM_NOT_RUNNING') resolve();
+                    else reject(error);
+                }
+            });
         }
+        return this.closePromise;
     }
+
 }
 
 module.exports = SyslogClient;

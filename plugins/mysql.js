@@ -6,8 +6,7 @@
 const Transport = require('winston-transport');
 const mysql = require('mysql2/promise');
 
-let connectionPool = null;
-let tableInitialized = false;
+
 
 class MySQLTransport extends Transport {
     constructor(opts = {}) {
@@ -16,6 +15,11 @@ class MySQLTransport extends Transport {
         this.name = 'MySQL Transport for NTLogger';
         this.database = opts.database || 'test';
         this.table = opts.table || 'logs';
+        if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(this.table)) {
+            throw new Error('Log table must be a simple SQL identifier');
+        }
+        this.tableInitialized = false;
+        this.closed = false;
 
         this.levels = {
             internal: 6,
@@ -34,70 +38,52 @@ class MySQLTransport extends Transport {
             user: opts.user || 'root',
             password: opts.password || '',
             database: this.database,
-            waitForConnections: opts.waitForConnections || true,
+            ssl: opts.ssl,
+            timezone: "+00:00",
+            waitForConnections: opts.waitForConnections ?? true,
             connectionLimit: opts.connectionLimit || 10,
             queueLimit: opts.queueLimit || 0,
-            maxIdle: opts.maxIdle || 10,
+            maxIdle: opts.maxIdle ?? 10,
             idleTimeout: opts.idleTimeout || 60000,
-            enableKeepAlive: opts.enableKeepAlive || true,
+            enableKeepAlive: opts.enableKeepAlive ?? true,
             keepAliveInitialDelay: opts.keepAliveInitialDelay || 0,
         };
 
-        this.init();
+        this.pool = mysql.createPool(this.poolConfig);
+        this.pool.on('error', error => { this.lastError = error; });
+        this.ready = this.checkLogTable();
+        this.ready.catch(error => { this.lastError = error; });
     }
 
     /**
      * Initializes the MySQL connection pool and checks the log table.
      */
-    async init() {
-        try {
-            if (!connectionPool) {
-                connectionPool = mysql.createPool(this.poolConfig);
-            }
-            this.pool = connectionPool;
-            await this.checkLogTable();
-        } catch (err) {
-            console.error(`Failed to initialize ${this.name}:`, err);
-        }
-    }
+    async init() { return this.ready; }
 
     async log(info, callback) {
-        setImmediate(() => {
-            this.emit('logged', info);
-        });
-
-        if (!tableInitialized) {
-            await this.checkLogTable();
-        }
-
-        const { level, message, ...meta } = info;
-
-        if (this.levels[level] > this.logLevel) {
-            callback();
-            return;
-        }
-
-        const metaString = JSON.stringify(meta);
-        const timestamp = this.formatTimestamp(meta.timeCreated);
-
+        if (this.levels[info.level] > this.logLevel) { callback(); return; }
         try {
+            if (this.closed) throw new Error('Database transport is closed');
+            await this.ready;
+            const { level, message, ...meta } = info;
+            const timestamp = this.formatTimestamp(meta.timestamp);
             await this.pool.execute(
                 `INSERT INTO ${this.table} (level, message, meta, timestamp) VALUES (?, ?, ?, ?)`,
-                [level, message, metaString, timestamp]
+                [level, message, JSON.stringify(meta), timestamp]
             );
-        } catch (err) {
-            console.error(`Failed to log message to ${this.name}:`, err);
+            this.emit('logged', info);
+            callback();
+        } catch (error) {
+            this.lastError = error;
+            callback(error);
         }
-
-        callback();
     }
 
-    /**
-     * Formats the timestamp for the MySQL database.
-     * @param {string} timeCreated - The time created string.
-     * @returns {string} - The formatted timestamp.
-     */
     formatTimestamp(timeCreated) {
+        if (timeCreated && /^\d{4}-/.test(timeCreated)) {
+            const date = new Date(timeCreated);
+            return date.toISOString().slice(0, 23).replace('T', ' ');
+        }
         if (!timeCreated) {
             return new Date().toISOString().slice(0, 19).replace('T', ' ');
         }
@@ -119,55 +105,36 @@ class MySQLTransport extends Transport {
     /**
      * Checks if the log table exists in the MySQL database. If it does not exist, it will create it.
      */
-    async checkLogTable() {
-        if (tableInitialized) return;
-
-        try {
-            const [rows] = await this.pool.execute(
-                `SELECT COUNT(*) AS count
-                 FROM information_schema.tables 
-                 WHERE table_schema = ? 
-                 AND table_name = ?`,
-                [this.database, this.table]
-            );
-
-            if (rows[0].count === 0) {
-                await this.pool.execute(
-                    `CREATE TABLE IF NOT EXISTS ${this.table} (
-                        id INT AUTO_INCREMENT PRIMARY KEY,
-                        level VARCHAR(255) NOT NULL,
-                        message TEXT NOT NULL,
-                        meta TEXT,
-                        timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                    )`
-                );
-            }
-
-            tableInitialized = true;
-        } catch (err) {
-            console.error(`Failed to check or create table ${this.table}:`, err);
+    checkLogTable() {
+        if (!this.tableReady) {
+            this.tableReady = this.pool.execute(`CREATE TABLE IF NOT EXISTS ${this.table} (id INT AUTO_INCREMENT PRIMARY KEY, level VARCHAR(255) NOT NULL, message TEXT NOT NULL, meta TEXT, timestamp TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP(3))`)
+                .then(() => { this.tableInitialized = true; })
+                .catch(error => { this.tableReady = null; throw error; });
         }
+        return this.tableReady;
     }
 
-    /**
-     * Checks if the MySQL connection pool is active.
-     * @returns {boolean} - True if the connection pool is active, false otherwise.
-     */
     isActive() {
-        return this.pool && !this.pool.ended;
+        return this.pool && !this.closed;
     }
 
     /**
      * Closes the MySQL connection pool.
      * @returns {Promise<void>}
      */
-    async close() {
-        if (connectionPool) {
-            await connectionPool.end();
-            connectionPool = null;
-            console.log('Closed MySQL connection pool.');
-        }
+    async flush() {
+        await this.ready;
+        if (this.lastError) throw this.lastError;
     }
+
+    close() {
+        if (!this.closePromise) {
+            this.closed = true;
+            this.closePromise = this.ready.catch(() => {}).then(() => this.pool.end());
+        }
+        return this.closePromise;
+    }
+
 }
 
 module.exports = {

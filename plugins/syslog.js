@@ -16,12 +16,12 @@ class SyslogTransport extends Transport {
             port: opts.port || 514,
             protocol: opts.protocol || 'UDP', // Options: 'UDP', 'TCP', 'TLS'
             rfc: opts.rfc || 'RFC-5424', // Options: 'RFC-3164', 'RFC-5424'
-            facility: opts.facility || 1,
+            facility: opts.facility ?? 1,
             appName: opts.appName || 'NTLogger',
             hostname: opts.hostname || require('os').hostname(),
         });
 
-        this.levels = {
+        this.severities = {
             internal: 7, // Debug level for internal logs
             trace: 7,    // Debug
             debug: 7,    // Debug
@@ -30,7 +30,7 @@ class SyslogTransport extends Transport {
             error: 3,    // Error
             fatal: 2,    // Critical
         };
-        this.logLevel = opts.level ? this.levels[opts.level] : this.levels.info;
+        this.logLevel = opts.level ? this.severities[opts.level] : this.severities.info;
 
         if (this.client.protocol === 'TCP' || this.client.protocol === 'TLS') {
             this.client.connect().catch(err => {
@@ -51,14 +51,12 @@ class SyslogTransport extends Transport {
 
         const { level, message, ...meta } = info;
 
-        if (this.levels[level] > this.logLevel) {
+        if (this.severities[level] > this.logLevel) {
             callback();
             return;
         }
 
-        this.client.send(this.levels[level], message, meta);
-
-        callback();
+        this.client.send(this.severities[level], message, meta, callback);
     }
 
     /**
@@ -74,8 +72,7 @@ class SyslogTransport extends Transport {
      * @returns {Promise<void>}
      */
     async close() {
-        this.client.close();
-        console.log('Closed Syslog client connection.');
+        await this.client.close();
     }
 }
 

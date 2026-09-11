@@ -128,7 +128,7 @@ class OpenTelemetryTransport extends Transport {
         }
 
         const Processor = opts.useSimpleProcessor ? SimpleLogRecordProcessor : BatchLogRecordProcessor;
-        const processor = new Processor(exporter, opts.processorOptions || {});
+        const processor = new Processor({ ...(opts.processorOptions || {}), exporter });
 
         let resource;
         const resources = tryRequire('@opentelemetry/resources');
@@ -211,6 +211,7 @@ class OpenTelemetryTransport extends Transport {
             severityText,
             body,
             attributes: this._toAttributes(meta),
+            ...(meta.timestamp ? { timestamp: new Date(meta.timestamp) } : {}),
         };
 
         if (this._traceApi) {
@@ -228,7 +229,8 @@ class OpenTelemetryTransport extends Transport {
         try {
             this.otelLogger.emit(record);
         } catch (err) {
-            console.error(`OpenTelemetry transport emit failed: ${err.message}`);
+            callback(err);
+            return;
         }
 
         callback();
@@ -249,11 +251,7 @@ class OpenTelemetryTransport extends Transport {
      */
     async close() {
         if (this._ownsProvider && this.loggerProvider && typeof this.loggerProvider.shutdown === 'function') {
-            try {
-                await this.loggerProvider.shutdown();
-            } catch (err) {
-                console.error(`OpenTelemetry transport shutdown failed: ${err.message}`);
-            }
+            await this.loggerProvider.shutdown();
         }
     }
 }

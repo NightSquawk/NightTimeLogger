@@ -3,10 +3,6 @@
  * @description Tests for the Syslog winston transport. The underlying SyslogClient
  *              has its own dedicated suite — here we focus on the transport's
  *              level filtering, level-to-severity mapping, and lifecycle methods.
- *
- *              CLAUDE.md flags "Syslog plugin has incorrect log level mappings" as a
- *              known issue — the level-mapping tests below pin down the current
- *              behavior so a future fix can update them deliberately.
  */
 
 const dgram = require('dgram');
@@ -86,17 +82,33 @@ describe('SyslogTransport', () => {
 
     test('maps fatal -> 2, error -> 3, warn -> 4, info -> 6, debug/trace/internal -> 7', () => {
         const t = new SyslogTransport({ host: '127.0.0.1', port: listener.port, level: 'internal' });
-        expect(t.levels.fatal).toBe(2);
-        expect(t.levels.error).toBe(3);
-        expect(t.levels.warn).toBe(4);
-        expect(t.levels.info).toBe(6);
-        expect(t.levels.debug).toBe(7);
-        expect(t.levels.trace).toBe(7);
-        expect(t.levels.internal).toBe(7);
+        expect(t.severities.fatal).toBe(2);
+        expect(t.severities.error).toBe(3);
+        expect(t.severities.warn).toBe(4);
+        expect(t.severities.info).toBe(6);
+        expect(t.severities.debug).toBe(7);
+        expect(t.severities.trace).toBe(7);
+        expect(t.severities.internal).toBe(7);
     });
 
     test('isActive reports true for an active UDP transport', () => {
         const t = new SyslogTransport({ host: '127.0.0.1', port: listener.port, protocol: 'UDP' });
         expect(t.isActive()).toBe(true);
     });
+});
+
+test('Winston attachment preserves syslog wire severity and UTF-8 bytes', async () => {
+    const listener = await startUdpListener();
+    const factory = require('../../');
+    const log = factory('syslog-wire', { console: false, file: false, skipCache: true });
+    const transport = new SyslogTransport({ host: '127.0.0.1', port: listener.port, facility: 0 });
+    log.add(transport);
+    try {
+        log.info('café 日本語');
+        await log.flush();
+        await waitFor(() => listener.received.length === 1);
+        expect(listener.received[0]).toMatch(/^<6>1 /);
+        expect(listener.received[0]).toContain('café 日本語');
+        await log.close();
+    } finally { listener.server.close(); }
 });

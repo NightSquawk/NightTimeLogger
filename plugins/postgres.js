@@ -7,8 +7,7 @@ const Transport = require('winston-transport');
 const { Pool } = require('pg');
 const levels = require('../lib/levels');
 
-let connectionPool = null;
-let tableInitialized = false;
+
 
 class PostgreSQLTransport extends Transport {
     constructor(opts = {}) {
@@ -17,6 +16,11 @@ class PostgreSQLTransport extends Transport {
         this.name = 'PostgreSQL Transport for NTLogger';
         this.database = opts.database || 'test';
         this.table = opts.table || 'logs';
+        if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(this.table)) {
+            throw new Error('Log table must be a simple SQL identifier');
+        }
+        this.tableInitialized = false;
+        this.closed = false;
 
         this.logLevel = opts.level ? levels[opts.level] : levels.info;
 
@@ -26,58 +30,44 @@ class PostgreSQLTransport extends Transport {
             user: opts.user || 'postgres',
             password: opts.password || '',
             database: this.database,
+            ssl: opts.ssl,
             max: opts.connectionLimit || 10,
             idleTimeoutMillis: opts.idleTimeout || 60000,
             connectionTimeoutMillis: opts.connectionTimeout || 2000,
         };
 
-        this.init();
+        this.pool = new Pool(this.poolConfig);
+        this.pool.on('error', error => { this.lastError = error; });
+        this.ready = this.checkLogTable();
+        this.ready.catch(error => { this.lastError = error; });
     }
 
-    async init() {
-        try {
-            if (!connectionPool) {
-                connectionPool = new Pool(this.poolConfig);
-            }
-            this.pool = connectionPool;
-            await this.checkLogTable();
-        } catch (err) {
-            console.error(`Failed to initialize ${this.name}:`, err);
-        }
-    }
+    async init() { return this.ready; }
 
     async log(info, callback) {
-        setImmediate(() => {
-            this.emit('logged', info);
-        });
-
-        if (!tableInitialized) {
-            await this.checkLogTable();
-        }
-
-        const { level, message, ...meta } = info;
-
-        if (levels[level] > this.logLevel) {
-            callback();
-            return;
-        }
-
-        const metaString = JSON.stringify(meta);
-        const timestamp = this.formatTimestamp(meta.timeCreated);
-
+        if (levels[info.level] > this.logLevel) { callback(); return; }
         try {
+            if (this.closed) throw new Error('Database transport is closed');
+            await this.ready;
+            const { level, message, ...meta } = info;
+            const timestamp = this.formatTimestamp(meta.timestamp);
             await this.pool.query(
                 `INSERT INTO ${this.table} (level, message, meta, timestamp) VALUES ($1, $2, $3, $4)`,
-                [level, message, metaString, timestamp]
+                [level, message, JSON.stringify(meta), timestamp]
             );
-        } catch (err) {
-            console.error(`Failed to log message to ${this.name}:`, err);
+            this.emit('logged', info);
+            callback();
+        } catch (error) {
+            this.lastError = error;
+            callback(error);
         }
-
-        callback();
     }
 
     formatTimestamp(timeCreated) {
+        if (timeCreated && /^\d{4}-/.test(timeCreated)) {
+            const date = new Date(timeCreated);
+            return date.toISOString();
+        }
         if (!timeCreated) {
             return new Date().toISOString().slice(0, 19).replace('T', ' ');
         }
@@ -96,43 +86,32 @@ class PostgreSQLTransport extends Transport {
         return `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getDate().toString().padStart(2, '0')} ${hours}:${minutes}:${seconds}`;
     }
 
-    async checkLogTable() {
-        if (tableInitialized) return;
-
-        try {
-            const result = await this.pool.query(
-                `SELECT to_regclass('${this.table}') as tablename`
-            );
-
-            if (!result.rows[0].tablename) {
-                await this.pool.query(
-                    `CREATE TABLE IF NOT EXISTS ${this.table} (
-                        id SERIAL PRIMARY KEY,
-                        level VARCHAR(255) NOT NULL,
-                        message TEXT NOT NULL,
-                        meta JSONB,
-                        timestamp TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
-                    )`
-                );
-            }
-
-            tableInitialized = true;
-        } catch (err) {
-            console.error(`Failed to check or create table ${this.table}:`, err);
+    checkLogTable() {
+        if (!this.tableReady) {
+            this.tableReady = this.pool.query(`CREATE TABLE IF NOT EXISTS ${this.table} (id SERIAL PRIMARY KEY, level VARCHAR(255) NOT NULL, message TEXT NOT NULL, meta JSONB, timestamp TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP)`)
+                .then(() => { this.tableInitialized = true; })
+                .catch(error => { this.tableReady = null; throw error; });
         }
+        return this.tableReady;
     }
 
     isActive() {
-        return this.pool && !this.pool.ended;
+        return this.pool && !this.closed;
     }
 
-    async close() {
-        if (connectionPool) {
-            await connectionPool.end();
-            connectionPool = null;
-            console.log('Closed PostgreSQL connection pool.');
-        }
+    async flush() {
+        await this.ready;
+        if (this.lastError) throw this.lastError;
     }
+
+    close() {
+        if (!this.closePromise) {
+            this.closed = true;
+            this.closePromise = this.ready.catch(() => {}).then(() => this.pool.end());
+        }
+        return this.closePromise;
+    }
+
 }
 
 module.exports = {

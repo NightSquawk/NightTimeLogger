@@ -1,6 +1,17 @@
 'use strict';
 
 const split = require('split2');
+const { isMainThread } = require('worker_threads');
+const fs = require('fs');
+
+function writeOutput(line) {
+  if (isMainThread) return process.stdout.write(line);
+  // ThreadStream.end() can block the parent on Atomics.wait. Worker stdout
+  // callbacks need that parent's event loop, so write to the fd directly.
+  const bytes = Buffer.from(line);
+  let offset = 0;
+  while (offset < bytes.length) offset += fs.writeSync(1, bytes, offset, bytes.length - offset);
+}
 const colors = require('../lib/colors');
 
 const levelColors = colors.console;
@@ -122,7 +133,8 @@ function formatLine(obj, opts = {}) {
 
   parts.push(msg);
 
-  return parts.join(' ');
+  const line = parts.join(' ');
+  return opts.colorize === false ? line.replace(/\x1b\[[0-9;]*m/g, '') : line;
 }
 
 /**
@@ -153,17 +165,29 @@ function formatLine(obj, opts = {}) {
  * @param {Object} opts - Transport options
  */
 module.exports = function (opts = {}) {
-  return split(function (line) {
+  const stream = split(function (line) {
     let obj;
     try {
       obj = JSON.parse(line);
     } catch {
-      process.stdout.write(line + '\n');
+      writeOutput(line + '\n');
       return;
     }
     const formatted = formatLine(obj, opts);
-    process.stdout.write(formatted + '\n');
+    writeOutput(formatted + '\n');
   });
+  // The worker consumes only the writable side; drain the readable side so
+  // split2 can emit end/close and let Pino terminate its worker.
+  const flush = stream._flush.bind(stream);
+  stream._flush = callback => flush(error => {
+    if (error) return callback(error);
+    // stdout is asynchronous in a Pino worker. Wait for preceding writes before
+    // signalling completion, otherwise worker shutdown can discard the output.
+    if (isMainThread) process.stdout.write('', callback);
+    else callback();
+  });
+  stream.resume();
+  return stream;
 };
 
 // Export internals for testing

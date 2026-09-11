@@ -58,7 +58,7 @@ export interface LoggerConfig {
     console?: boolean;
     /** Enable file logging (default: true) */
     file?: boolean;
-    /** Filename for log file (default: `${location}.log`) */
+    /** Filename for combined log file (default: combined.log) */
     filename?: string;
     /** Directory path where log files will be saved (default: './logs') */
     path?: string;
@@ -84,6 +84,8 @@ export interface LoggerConfig {
     performanceMetrics?: boolean;
     /** Interval in milliseconds to log statistics (default: 0 = disabled) */
     statsInterval?: number;
+    /** Maximum flush/stream shutdown wait in milliseconds (default: 30000). */
+    shutdownTimeout?: number;
     /** Plugin configurations */
     plugins?: PluginConfig[];
 }
@@ -220,6 +222,11 @@ export interface Logger {
  * @returns Logger instance
  */
 declare function logger(location?: string, config?: LoggerConfig): Logger;
+
+declare namespace logger {
+    /** Opt in to process-wide signal handlers; returns an unregister function. */
+    function setupSignalHandlers(options?: { timeout?: number }): () => void;
+}
 
 export = logger;
 

@@ -14,8 +14,9 @@ describe('Pino transport stream', () => {
 
     beforeEach(() => {
         writes = [];
-        stdoutSpy = jest.spyOn(process.stdout, 'write').mockImplementation((line) => {
+        stdoutSpy = jest.spyOn(process.stdout, 'write').mockImplementation((line, callback) => {
             writes.push(typeof line === 'string' ? line : line.toString());
+            if (typeof callback === 'function') callback();
             return true;
         });
     });
@@ -77,4 +78,10 @@ describe('Pino transport stream', () => {
         expect(line).toContain('500');
         expect(line).toContain('100.0ms');
     });
+});
+
+test('colorize false strips ANSI formatting', () => {
+    const formatted = transportFactory.formatLine({ time: Date.now(), level: 30, msg: 'plain text' }, { colorize: false });
+    expect(formatted).not.toContain('\x1b[');
+    expect(formatted).toContain('plain text');
 });

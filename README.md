@@ -4,6 +4,19 @@ NightTimeLogger is a custom logging wrapper built on top of the Winston logging 
 
 [![Node.js Package](https://github.com/NightSquawk/NightTimeLogger/actions/workflows/main.yml/badge.svg?branch=main)](https://github.com/NightSquawk/NightTimeLogger/actions/workflows/main.yml)
 
+This maintenance update requires Node.js 22.22.2 or newer; Node 22 and 24 are tested.
+
+Process signal handling is now **opt-in**. Applications that relied on automatic shutdown must register it once:
+
+```javascript
+const logger = require('ntlogger');
+const unregister = logger.setupSignalHandlers({ timeout: 30000 });
+```
+
+Alternatively, keep your application's own shutdown handlers and `await log.close()` there. Importing the package no longer changes process exception or signal handling. Flush and close reject on delivery errors/timeouts, so callers should handle rejected promises. Close is idempotent, waits for transport cleanup, and removes the logger from its cache. Children share their parent's transports; closing a child flushes but does not close the parent. Log calls after close throw an error.
+
+OpenTelemetry users must upgrade the logs SDK/API/HTTP exporter together to `^0.222.0` and resources to `^2.11.0`. Earlier SDK versions are no longer advertised as compatible. Database transports now own separate pools, use event timestamps in UTC, accept `ssl` configuration, and require simple SQL table identifiers. Existing tables are not altered automatically.
+
 ## Features
 
 - Custom log levels for fine-grained control over logging output.
@@ -62,6 +75,8 @@ Check out [Full Configuration](https://github.com/NightSquawk/NightTimeLogger/bl
 - `console`: Whether to enable console logging. Defaults to `true`.
 - `file`: Whether to enable file logging. Defaults to `true`.
 - `path`: The directory path where log files will be saved.
+- `filename`: Combined log filename (default: `combined.log`); error/fatal files retain their names.
+- `shutdownTimeout`: Maximum wait in milliseconds for flush or stream shutdown (default: `30000`).
 - `maxSize`: The maximum size (in bytes) for each log file.
 - `maxFiles`: The maximum number of log files to retain (rotating file strategy).
 - `timestamp`: Whether to include timestamps in log messages. Defaults to `true`.
@@ -215,7 +230,7 @@ NightTimeLogger provides custom log levels and colors for enhanced logging exper
 - warn: 2
 - error: 1
 - fatal: 0
-- internal: -1
+- internal: 6
 
 ### Colors:
 
@@ -232,3 +247,8 @@ NightTimeLogger supports both file and console log formatters. File-formatted lo
 
 ## License
 NightTimeLogger is licensed under the [GPL-3.0 License](https://opensource.org/licenses/GPL-3.0).
+## Maintenance checks
+
+Run `npm ci` and `npm run test:coverage` for the complete suite. MySQL and PostgreSQL integration tests start disposable Docker containers; CI sets `REQUIRE_DOCKER_TESTS=1` so they cannot silently skip. `npm run test:unit` excludes those two Docker suites for local work. `npm audit` checks all dependencies; `npm audit --omit=dev` checks production dependencies.
+
+HTTP transports (Discord, Teams, OpenObserve) accept `timeout` (5000 ms per attempt), `maxRetries` (3), `retryDelay` (1000 ms), and `maxPending` (100 outstanding deliveries). They retry connection failures, HTTP 429 and 5xx with bounded backoff. Queue overflow, terminal HTTP errors, and timeouts surface through callbacks/flush. Delivery is best-effort with retries, not durable storage; an ambiguous network failure can lead to a duplicate on retry. OpenObserve retains batching and flush now waits for responses. Increase `shutdownTimeout` if you configure longer retries.

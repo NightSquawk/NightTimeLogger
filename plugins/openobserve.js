@@ -4,10 +4,9 @@
  */
 
 const Transport = require('winston-transport');
-const https = require('https');
-const http = require('http');
 const { URL } = require('url');
 const levels = require('../lib/levels');
+const { HttpDelivery } = require('./lib/httpDelivery');
 
 /**
  * Strips ANSI escape codes from a string
@@ -44,7 +43,7 @@ function cleanObject(obj) {
         const cleaned = {};
         for (const [key, value] of Object.entries(obj)) {
             // Skip timestamp fields
-            if (key === 'timestamp' || key === 'timeCreated') {
+            if (key === 'timeCreated') {
                 continue;
             }
             cleaned[key] = cleanObject(value);
@@ -86,7 +85,10 @@ class OpenObserveTransport extends Transport {
 
         // Optional configuration
         this.batchSize = opts.batchSize || 100;
-        this.timeThreshold = opts.timeThreshold || 5000;
+        this.timeThreshold = opts.timeThreshold ?? 5000;
+        if (!Number.isInteger(this.batchSize) || this.batchSize < 1 || !Number.isFinite(this.timeThreshold) || this.timeThreshold < 0) {
+            throw new Error('Invalid batching configuration');
+        }
 
         // Set log level
         try {
@@ -104,17 +106,8 @@ class OpenObserveTransport extends Transport {
         this.logQueue = [];
         this.flushTimer = null;
 
-        // Parse URL to determine protocol
-        try {
-            const url = new URL(this.host);
-            this.protocol = url.protocol === 'https:' ? https : http;
-            this.hostname = url.hostname;
-            this.port = url.port || (url.protocol === 'https:' ? 443 : 80);
-            // Normalize pathname: remove trailing slash if present, keep empty if no path
-            this.pathname = url.pathname.replace(/\/$/, '') || '';
-        } catch (error) {
-            throw new Error(`Invalid host URL: ${error.message}`);
-        }
+        const url = new URL(this.host);
+        this.pathname = url.pathname.replace(/\/$/, '') || '';
 
         // Create Basic Auth header
         const auth = Buffer.from(`${this.username}:${this.password}`).toString('base64');
@@ -122,210 +115,43 @@ class OpenObserveTransport extends Transport {
 
         // Build API endpoint path
         this.apiPath = `${this.pathname}/api/${encodeURIComponent(this.organization)}/${encodeURIComponent(this.stream)}/_json`;
-    }
-
-    /**
-     * Flushes the log queue to OpenObserve
-     */
-    flush() {
-        if (this.logQueue.length === 0) {
-            return;
-        }
-
-        const logsToSend = [...this.logQueue];
-        this.logQueue = [];
-
-        // Clear the timer since we're flushing now
-        if (this.flushTimer) {
-            clearTimeout(this.flushTimer);
-            this.flushTimer = null;
-        }
-
-        // Clean all logs: strip ANSI codes and remove timestamps
-        const cleanedLogs = logsToSend.map(log => {
-            const cleaned = cleanObject(log);
-            // Ensure we have the essential fields
-            // Note: filePath (from reportPath feature) is preserved in metadata as a separate JSON field
-            // It's not in the formatted message string, ensuring clean structured data for OpenObserve
-            return {
-                level: cleaned.level,
-                message: cleaned.message,
-                ...cleaned  // Includes all metadata fields like filePath, location, ID, etc.
-            };
-        });
-
-        const payload = JSON.stringify(cleanedLogs);
-
-        const options = {
-            hostname: this.hostname,
-            port: this.port,
-            path: this.apiPath,
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Content-Length': Buffer.byteLength(payload),
-                'Authorization': this.authHeader,
-            },
-        };
-
-        const req = this.protocol.request(options, (res) => {
-            let responseData = '';
-            res.on('data', (chunk) => {
-                responseData += chunk;
-            });
-            res.on('end', () => {
-                if (res.statusCode >= 200 && res.statusCode < 300) {
-                    // Success
-                } else {
-                    console.error(`OpenObserve API error: ${res.statusCode} - ${responseData}`);
-                }
-            });
-        });
-
-        req.on('error', (e) => {
-            console.error(`Failed to send logs to OpenObserve: ${e.message}`);
-        });
-
-        req.write(payload);
-        req.end();
-    }
-
-    /**
-     * Schedules a flush after timeThreshold milliseconds
-     */
-    scheduleFlush() {
-        if (this.flushTimer) {
-            return; // Already scheduled
-        }
-
-        this.flushTimer = setTimeout(() => {
-            this._flush();
-        }, this.timeThreshold);
+        const endpoint = new URL(this.host);
+        endpoint.pathname = this.apiPath;
+        this.delivery = new HttpDelivery(endpoint, opts);
     }
 
     log(info, callback) {
-        setImmediate(() => {
-            this.emit('logged', info);
-        });
-
-        const { level, message, ...meta } = info;
-
-        // Check if log level is at or below the configured level
-        if (levels[level] > this.levelPriority) {
-            callback();
-            return;
+        if (levels[info.level] > this.levelPriority) { callback(); return; }
+        if (this.closed) { callback(new Error('OpenObserve transport is closed')); return; }
+        this.logQueue.push(info);
+        if (this.logQueue.length >= this.batchSize) this._flush();
+        else if (!this.flushTimer) {
+            this.flushTimer = setTimeout(() => this._flush(), this.timeThreshold);
+            this.flushTimer.unref();
         }
-
-        // Add log to queue
-        this.logQueue.push({
-            level,
-            message,
-            ...meta
-        });
-
-        // Flush if batch size is reached
-        if (this.logQueue.length >= this.batchSize) {
-            this._flush();
-        } else {
-            // Schedule a flush after timeThreshold
-            this.scheduleFlush();
-        }
-
         callback();
     }
 
-    /**
-     * Flushes the log queue (can be called manually)
-     * @returns {Promise} - Promise that resolves when flush is complete
-     */
-    flush() {
-        return new Promise((resolve) => {
-            setImmediate(() => {
-                this._flush();
-                resolve();
-            });
-        });
-    }
-
-    /**
-     * Internal flush method (synchronous)
-     */
     _flush() {
-        if (this.logQueue.length === 0) {
-            return;
-        }
-
-        const logsToSend = [...this.logQueue];
-        this.logQueue = [];
-
-        // Clear the timer since we're flushing now
-        if (this.flushTimer) {
-            clearTimeout(this.flushTimer);
-            this.flushTimer = null;
-        }
-
-        // Clean all logs: strip ANSI codes and remove timestamps
-        const cleanedLogs = logsToSend.map(log => {
-            const cleaned = cleanObject(log);
-            // Ensure we have the essential fields
-            // Note: filePath (from reportPath feature) is preserved in metadata as a separate JSON field
-            // It's not in the formatted message string, ensuring clean structured data for OpenObserve
-            return {
-                level: cleaned.level,
-                message: cleaned.message,
-                ...cleaned  // Includes all metadata fields like filePath, location, ID, etc.
-            };
-        });
-
-        const payload = JSON.stringify(cleanedLogs);
-
-        const options = {
-            hostname: this.hostname,
-            port: this.port,
-            path: this.apiPath,
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Content-Length': Buffer.byteLength(payload),
-                'Authorization': this.authHeader,
-            },
-        };
-
-        const req = this.protocol.request(options, (res) => {
-            let responseData = '';
-            res.on('data', (chunk) => {
-                responseData += chunk;
-            });
-            res.on('end', () => {
-                if (res.statusCode >= 200 && res.statusCode < 300) {
-                    // Success
-                } else {
-                    console.error(`OpenObserve API error: ${res.statusCode} - ${responseData}`);
-                }
-            });
-        });
-
-        req.on('error', (e) => {
-            console.error(`Failed to send logs to OpenObserve: ${e.message}`);
-        });
-
-        req.write(payload);
-        req.end();
+        clearTimeout(this.flushTimer);
+        this.flushTimer = null;
+        if (!this.logQueue.length) return;
+        const batch = this.logQueue.splice(0);
+        try {
+            const payload = JSON.stringify(batch.map(log => cleanObject(log)));
+            this.delivery.send(payload, { Authorization: this.authHeader }).catch(() => {});
+        } catch (error) { this.delivery.failure = error; }
     }
 
-    /**
-     * Closes the transport and flushes any remaining logs
-     */
-    close() {
-        if (this.flushTimer) {
-            clearTimeout(this.flushTimer);
-            this.flushTimer = null;
-        }
+    async flush() {
         this._flush();
+        await this.delivery.flush();
+    }
+
+    close() {
+        this.closed = true;
+        return this.flush();
     }
 }
 
-module.exports = {
-    transport: OpenObserveTransport,
-};
-
+module.exports = { transport: OpenObserveTransport };

@@ -4,8 +4,7 @@
  */
 
 const Transport = require('winston-transport');
-const https = require('https');
-const { URL } = require('url');
+const { HttpDelivery } = require('./lib/httpDelivery');
 
 const levels = require('../lib/levels');
 
@@ -16,12 +15,8 @@ class TeamsTransport extends Transport {
         this.name = 'Teams Webhook Transport for NTLogger';
 
         this.webhookUrl = opts.webhookUrl;
+        this.delivery = new HttpDelivery(opts.webhookUrl, opts);
         this.strict = opts.strict || false;
-
-        // Retry logic with exponential back-off
-        // https://learn.microsoft.com/en-us/microsoftteams/platform/webhooks-and-connectors/how-to/connectors-using?tabs=cURL%2Ctext1#rate-limiting-for-connectors
-        this.maxRetries = opts.maxRetries || 3;
-        this.retryDelay = opts.retryDelay || 1000; // Initial delay for exponential back-off (in ms)
 
         try {
             // Set the log level
@@ -38,10 +33,6 @@ class TeamsTransport extends Transport {
     }
 
     async log(info, callback) {
-        setImmediate(() => {
-            this.emit('logged', info);
-        });
-
         const { level, message, ...meta } = info;
 
         // Check if the log level matches the configured level (strict mode) or is at or below the configured level
@@ -57,62 +48,14 @@ class TeamsTransport extends Transport {
             }
         }
 
-        const payload = this.createPayload(level, message, meta);
-        const webhookUrl = new URL(this.webhookUrl);
+        try {
+            const payload = this.createPayload(level, message, meta);
+            if (this.closed) throw new Error('HTTP transport is closed');
+            await this.delivery.send(payload);
+            this.emit('logged', info);
+            callback();
+        } catch (error) { callback(error); }
 
-        const options = {
-            hostname: webhookUrl.hostname,
-            path: webhookUrl.pathname + webhookUrl.search,
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Content-Length': Buffer.byteLength(payload),
-            },
-        };
-
-        const sendLog = (retryCount = 0) => {
-            const req = https.request(options, (res) => {
-                let responseContent = '';
-
-                res.on('data', (chunk) => {
-                    responseContent += chunk;
-                });
-
-                res.on('end', () => {
-                    if (responseContent.includes("Microsoft Teams endpoint returned HTTP error 429")) {
-                        console.error('Rate limit hit, retrying with exponential back-off...');
-                        if (retryCount < this.maxRetries) {
-                            setTimeout(() => {
-                                sendLog(retryCount + 1);
-                            }, this.retryDelay * Math.pow(2, retryCount)); // Exponential back-off
-                        } else {
-                            console.error('Max retries reached, log sending failed.');
-                            callback();
-                        }
-                    } else {
-                        callback();
-                    }
-                });
-            });
-
-            req.on('error', (e) => {
-                console.error(`Failed to send log to Teams: ${e.message}`);
-                if (retryCount < this.maxRetries) {
-                    console.log(`Retrying... (${retryCount + 1}/${this.maxRetries})`);
-                    setTimeout(() => {
-                        sendLog(retryCount + 1);
-                    }, this.retryDelay * Math.pow(2, retryCount));
-                } else {
-                    console.error('Max retries reached, log sending failed.');
-                    callback();
-                }
-            });
-
-            req.write(payload);
-            req.end();
-        };
-
-        sendLog();
     }
 
     createPayload(level, message, meta) {
@@ -132,7 +75,7 @@ class TeamsTransport extends Transport {
         const metaArray = Array.isArray(meta) ? meta : Object.values(meta);
 
         metaArray.forEach(item => {
-            if (typeof item !== 'object' || !item.type) {
+            if (!item || typeof item !== 'object' || !item.type) {
                 return;
             }
 
@@ -304,6 +247,12 @@ class TeamsTransport extends Transport {
             ]
         });
     }
+    flush() { return this.delivery.flush(); }
+    close() {
+        this.closed = true;
+        return this.delivery.flush();
+    }
+
 }
 
 module.exports = {

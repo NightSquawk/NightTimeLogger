@@ -107,5 +107,21 @@ describeIfDocker('Postgres plugin (testcontainers)', () => {
             ['pg-dropped-by-filter'],
         );
         expect(res.rows[0].count).toBe(0);
+        await t.close();
     });
+    test('independent transports initialize separate tables and survive sibling close', async () => {
+        const options = { host: container.getHost(), port: container.getPort(), user: 'test', password: 'test', database: TEST_DATABASE };
+        const a = new PostgreSQLTransport({ ...options, table: 'destination_a' });
+        const b = new PostgreSQLTransport({ ...options, table: 'destination_b' });
+        try {
+            await Promise.all([a.ready, b.ready]);
+            await a.close();
+            await new Promise((resolve, reject) => b.log({ level: 'info', message: 'isolated' }, error => error ? reject(error) : resolve()));
+            const result = await b.pool.query("SELECT message FROM destination_b");
+            const rows = result.rows;
+            expect(rows.some(row => row.message === 'isolated')).toBe(true);
+            expect(a.pool).not.toBe(b.pool);
+        } finally { await Promise.all([a.close(), b.close()]); }
+    });
+
 });

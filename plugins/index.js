@@ -5,17 +5,17 @@
 
 // Available plugins
 const plugins = {
-    Sentry      : require('./sentry'),
-    MySQL       : require('./mysql'),
-    Postgres    : require('./postgres'),
-    Jest        : require('./jest'),
-    Syslog      : require('./syslog'),
-    Discord     : require('./discord'),
-    Teams       : require('./teams'),
-    OpenObserve : require('./openobserve'),
-    OpenTelemetry : require('./otel'),
+    Sentry      : () => require('./sentry'),
+    MySQL       : () => require('./mysql'),
+    Postgres    : () => require('./postgres'),
+    Jest        : () => require('./jest'),
+    Syslog      : () => require('./syslog'),
+    Discord     : () => require('./discord'),
+    Teams       : () => require('./teams'),
+    OpenObserve : () => require('./openobserve'),
+    OpenTelemetry : () => require('./otel'),
 
-    // WIP SMSMail : require('./smsMail'),
+    // WIP SMSMail : () => require('./smsMail'),
 };
 
 // ------------------------------ DO NOT MODIFY BELOW THIS LINE ------------------------------ //
@@ -28,7 +28,7 @@ function checkPluginAvailability(pluginName) {
 
 function getPluginTransport(pluginName) {
     checkPluginAvailability(pluginName);
-    return plugins[pluginName].transport;
+    return plugins[pluginName]().transport;
 }
 
 /**

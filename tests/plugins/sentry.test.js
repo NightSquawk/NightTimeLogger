@@ -7,6 +7,7 @@
 
 jest.mock('@sentry/node', () => ({
     init: jest.fn(),
+    flush: jest.fn(async () => true),
     captureException: jest.fn(),
     captureMessage: jest.fn(),
 }));
@@ -50,7 +51,7 @@ describe('Sentry plugin', () => {
         expect(Sentry.captureMessage).toHaveBeenCalledTimes(1);
         const [msg, ctx] = Sentry.captureMessage.mock.calls[0];
         expect(msg).toBe('careful');
-        expect(ctx.level).toBe('warn');
+        expect(ctx.level).toBe('warning');
         expect(ctx.extra.region).toBe('us-east');
         expect(Sentry.captureException).not.toHaveBeenCalled();
     });
@@ -67,4 +68,12 @@ describe('Sentry plugin', () => {
         const t = new SentryTransport({ dsn: 'https://example@sentry.test/1' });
         expect(t.name).toMatch(/Sentry/);
     });
+});
+
+test('Sentry flush reports timeout and close preserves host SDK ownership', async () => {
+    const t = new SentryTransport();
+    Sentry.flush.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+    await expect(t.flush()).rejects.toThrow('timed out');
+    await t.close();
+    expect(Sentry.flush).toHaveBeenCalled();
 });

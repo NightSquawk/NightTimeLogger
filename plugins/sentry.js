@@ -14,6 +14,7 @@ class SentryTransport extends Transport {
         super(opts);
 
         this.name = 'Sentry Transport for NTLogger';
+        this.flushTimeout = opts.flushTimeout ?? 5000;
         this.init(opts);
     }
 
@@ -37,13 +38,22 @@ class SentryTransport extends Transport {
         const { level, message, ...meta } = info;
 
         if (level === 'error') {
-            Sentry.captureException(new Error(message), { extra: meta });
+            const error = new Error(message);
+            if (meta.stack) error.stack = meta.stack;
+            Sentry.captureException(error, { extra: meta });
         } else {
-            Sentry.captureMessage(message, { level, extra: meta });
+            Sentry.captureMessage(message, { level: ({ warn: 'warning', trace: 'debug', internal: 'debug' })[level] || level, extra: meta });
         }
 
         callback();
     }
+    async flush() {
+        if (!await Sentry.flush(this.flushTimeout)) throw new Error('Sentry flush timed out');
+    }
+
+    // Flush without disabling the SDK shared with the host application.
+    close() { return this.flush(); }
+
 }
 
 module.exports = {
