@@ -38,7 +38,11 @@
       "types": "./pino.d.ts",
       "default": "./pino.js"
     },
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./eslint": {
+      "types": "./eslint.d.ts",
+      "default": "./eslint.js"
+    }
   },
   "types": "./index.d.ts",
   "files": [
@@ -48,7 +52,10 @@
     "pino.d.ts",
     "lib/*.js",
     "plugins/**/*",
-    "transports/"
+    "transports/",
+    "eslint.js",
+    "eslint.d.ts",
+    "eslint-rules/"
   ],
   "scripts": {
     "test": "jest",
@@ -70,7 +77,8 @@
     "pg": "^8.23.0",
     "pino": ">=9.14.0",
     "winston": "^3.19.0",
-    "winston-transport": "^4.9.0"
+    "winston-transport": "^4.9.0",
+    "eslint": ">=9.0.0"
   },
   "peerDependenciesMeta": {
     "pino": {
@@ -107,6 +115,9 @@
       "optional": true
     },
     "winston-transport": {
+      "optional": true
+    },
+    "eslint": {
       "optional": true
     }
   },

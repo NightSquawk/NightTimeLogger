@@ -46,6 +46,8 @@ import type { CreateLoggerOptions, NtlPinoLogger, RequestTracker } from './pino'
 import type { Logger as PinoLogger } from 'pino';
 
 import Fastify, { FastifyInstance } from 'fastify';
+import lintPlugin from './eslint';
+void lintPlugin.rules;
 const app: FastifyInstance = Fastify({ logger: createPinoOptions({ service: 'api' }) });
 app.get('/', async (request) => { request.log.info({ deviceId: 'd1' }, 'scan'); return {}; });
 const captured = createTestLogger({ onLogMaxPending: 10 });
