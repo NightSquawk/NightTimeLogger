@@ -41,9 +41,13 @@ const compileTest = canCompile ? test : test.skip;
 
 /** Exercises every documented member of `ntlogger/pino`. Must produce zero diagnostics. */
 const VALID_PROGRAM = `
-import ntlPino, { createLogger, isSilent, installProcessHandlers, drainLogger } from './pino';
+import ntlPino, { createLogger, createPinoOptions, isSilent, installProcessHandlers, drainLogger } from './pino';
 import type { CreateLoggerOptions, NtlPinoLogger, RequestTracker } from './pino';
 import type { Logger as PinoLogger } from 'pino';
+
+import Fastify, { FastifyInstance } from 'fastify';
+const app: FastifyInstance = Fastify({ logger: createPinoOptions({ service: 'api' }) });
+app.get('/', async (request) => { request.log.info({ deviceId: 'd1' }, 'scan'); return {}; });
 
 const opts: CreateLoggerOptions = {
     level: 'debug',
@@ -223,6 +227,7 @@ describe('ntlogger/pino type declarations', () => {
             expect(typeof mod).toBe('function');
             for (const name of [
                 'createLogger',
+                'createPinoOptions',
                 'isSilent',
                 'installProcessHandlers',
                 'drainLogger',

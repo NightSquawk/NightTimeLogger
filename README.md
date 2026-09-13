@@ -411,6 +411,48 @@ const log = createLogger({ module: 'API', silent: false }); // force output in a
 Node's built-in test runner does **not** set `NODE_ENV`, so projects using `node --test` should
 export `NTLOGGER_SILENT=1` in their test script instead.
 
+### Fastify integration
+
+Use the plain options factory to retain Fastify's normal route logger types:
+
+```javascript
+const Fastify = require('fastify');
+const { createPinoOptions } = require('ntlogger/pino');
+
+const app = Fastify({
+  logger: createPinoOptions({
+    service: 'api',
+    contextProvider: () => requestContext.getStore(), // your AsyncLocalStorage
+    serializers: {
+      req: req => ({ method: req.method, url: req.url, headers: req.headers }),
+      res: reply => ({ statusCode: reply.statusCode, headers: reply.getHeaders() }),
+    },
+  }),
+});
+app.addHook('preHandler', async req => {
+  req.log.debug({ body: req.body }, 'parsed request body');
+});
+```
+
+The factory emits JSON options without creating a transport or installing process
+handlers. Fastify owns the logger and shutdown. It shares `createLogger()`'s
+service/module fields, context provider, silent-mode resolution, and redaction.
+Default request/response serializers retain Fastify's summary fields; headers and
+bodies are opt-in. Bodies are available after parsing, not in the initial request
+log. See [Fastify's logging documentation](https://fastify.dev/docs/latest/Reference/Logging/).
+
+Pass custom serializers **into the factory** so redaction runs on their output.
+Replacing returned formatters, hooks, or serializers (including route-level serializer
+overrides) can bypass protection. Ordinary log objects, message strings, and serialized
+request/response/error fields are redacted. Arbitrary child bindings are not covered by
+the factory's general deep redactor: keep them to identifiers such as `reqId` and
+`tenantId`, or protect specific binding paths with `redact: ['account.secret']`.
+`createLogger()` additionally redacts arbitrary child bindings.
+
+Sampling, rate limiting, deduplication, destinations, and process handlers are not
+accepted by this factory; use `createLogger()` for those features. Framework-owned
+loggers do not gain ntlogger's `getStats()`, `resetStats()`, or `close()` methods.
+
 ### Process handlers
 
 Opt-in only — importing the library never installs process listeners.

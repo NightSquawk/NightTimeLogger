@@ -17,6 +17,7 @@ import type {
     ChildLoggerOptions,
     DestinationStream,
     Logger as PinoLogger,
+    LoggerOptions,
 } from 'pino';
 
 /**
@@ -238,6 +239,12 @@ declare namespace ntlPinoTransport {
 
     /** Create a pre-configured Pino logger that follows NightTimeLogger conventions. */
     export function createLogger(opts?: CreateLoggerOptions): NtlPinoLogger;
+
+    /** Framework-owned JSON logger options; no ntlogger lifecycle or timers. */
+    export type CreatePinoOptions = Pick<CreateLoggerOptions,
+        'level' | 'module' | 'service' | 'context' | 'contextProvider' | 'contextKeys' | 'redact' | 'silent'
+    > & { serializers?: LoggerOptions['serializers'] };
+    export function createPinoOptions(opts?: CreatePinoOptions): LoggerOptions;
 
     /**
      * Resolve silent mode: `opts.silent` -> `NTLOGGER_SILENT` -> `NODE_ENV === 'test'`.

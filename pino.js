@@ -323,9 +323,8 @@ function decorateLogger(logger, features, redactor) {
  * @param {*} [opts.destination] - For tests/advanced use: a Pino destination stream. Replaces the NTL transport.
  * @returns {object} - Pino logger with `getStats()`, `resetStats()`, `close()` and (optionally) `uninstallProcessHandlers`.
  */
-function createLogger(opts = {}) {
+function buildPinoOptions(opts = {}) {
   const pino = require('pino');
-  const path = require('path');
   const os = require('os');
 
   const silent = isSilent(opts);
@@ -422,6 +421,14 @@ function createLogger(opts = {}) {
     };
   }
 
+  return { loggerOpts, features, redactor, silent, isDev };
+}
+
+function createLogger(opts = {}) {
+  const pino = require('pino');
+  const path = require('path');
+  const { loggerOpts, features, redactor, silent, isDev } = buildPinoOptions(opts);
+
   // --- destination / transport -------------------------------------------
   // `opts.destination` and `transport` are mutually exclusive in Pino, so an
   // explicit destination always wins and the NTL formatter is skipped.
@@ -455,3 +462,56 @@ function createLogger(opts = {}) {
 
 module.exports.createLogger = createLogger;
 module.exports.isSilent = isSilent;
+
+/**
+ * Plain Pino options for framework-owned loggers. No transport, process
+ * handlers, or feature timers are created; the framework owns the lifecycle.
+ * Supply custom serializers here so their output is redacted too.
+ */
+function createPinoOptions(opts = {}) {
+  for (const key of ['sampling', 'rateLimit', 'deduplication', 'destination', 'processHandlers']) {
+    if (opts[key] !== undefined) {
+      throw new TypeError(`createPinoOptions does not support ${key}; use createLogger instead`);
+    }
+  }
+  const pino = require('pino');
+  const { loggerOpts, redactor } = buildPinoOptions(opts);
+  const serializers = {
+    req: req => ({
+      method: req.method,
+      url: req.url,
+      version: req.headers && req.headers['accept-version'],
+      host: req.host,
+      remoteAddress: req.ip || (req.socket && req.socket.remoteAddress),
+      remotePort: req.socket && req.socket.remotePort,
+    }),
+    res: res => ({ statusCode: res.statusCode }),
+    err: pino.stdSerializers.err,
+    ...opts.serializers,
+  };
+  loggerOpts.serializers = {};
+  for (const [key, serialize] of Object.entries(serializers)) {
+    if (typeof serialize !== 'function') throw new TypeError(`Invalid serializer: ${key}`);
+    loggerOpts.serializers[key] = redactor
+      ? value => redactor.redactObject(serialize(value))
+      : serialize;
+  }
+  if (redactor) {
+    // Pino invokes formatters before serializers. Preserve their input objects
+    // (including prototypes/getters) and redact the serialized output instead.
+    loggerOpts.formatters.log = obj => {
+      const plain = {};
+      for (const key of Object.keys(obj)) {
+        if (!Object.hasOwn(serializers, key)) plain[key] = obj[key];
+      }
+      const safe = redactor.redactObject(plain);
+      for (const key of Object.keys(obj)) {
+        if (Object.hasOwn(serializers, key)) safe[key] = obj[key];
+      }
+      return safe;
+    };
+  }
+  return loggerOpts;
+}
+
+module.exports.createPinoOptions = createPinoOptions;
