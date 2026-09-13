@@ -131,3 +131,4 @@ for (const peer of ['winston', 'winston-transport']) {
 }
 
 module.exports = require('./lib/logger');
+module.exports.withSecretValues = require('./lib/secretScope').withSecretValues;

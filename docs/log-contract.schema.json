@@ -100,6 +100,10 @@
     "agentUuid": { "type": "string" },
     "commandId": { "type": "string" },
     "collectionCycleId": { "type": "string" },
+    "runId": { "type": "string" },
+    "workId": { "type": ["string", "null"] },
+    "stageId": { "type": ["string", "null"] },
+    "deviceId": { "type": "string" },
     "reqId": { "type": "string" },
     "requestId": {
       "type": "string",

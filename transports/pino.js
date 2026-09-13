@@ -62,6 +62,11 @@ const CONTEXT_KEYS = [
   'jobId',
   'agentUuid',
   'commandId',
+  'collectionCycleId',
+  'runId',
+  'workId',
+  'stageId',
+  'deviceId',
 ];
 
 /**

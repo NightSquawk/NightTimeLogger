@@ -139,11 +139,16 @@ per concept on the wire.
 | `agentUuid` | string | kaleidoscope-agent (`utils/agent_id_manager.generate_agent_uuid`) | Deterministic per-install UUID. Python-side `agent_uuid`. |
 | `commandId` | string | kaleidoscope-agent when executing a server-dispatched command (`communication/api_router.py`) | Python-side `command_id`. |
 | `collectionCycleId` | string | kaleidoscope-agent `collect` mode | One id per collection sweep, so all collector output for a sweep groups. |
+| `runId` | string | Scanner runtime | One scanner execution. |
+| `workId` | string or null | Scanner lease | Assigned work; null for local scheduled scans. |
+| `stageId` | string or null | Scanner orchestration | Optional scan stage. |
+| `deviceId` | string | Device inventory | Stable device identifier when available. |
 | `reqId` | string | HTTP framework (Fastify/pino-http) | Per-request id. Canonical spelling for HTTP. |
 | `requestId` | string | Non-Fastify emitters | Accepted alias of `reqId`. Emit **one** of the two, not both; `reqId` preferred. |
 
 `transports/pino.js` renders a subset of these (`CONTEXT_KEYS`: `tenantId`, `userId`,
-`correlationId`, `traceId`, `spanId`, `jobId`, `agentUuid`, `commandId`) as a compact
+`correlationId`, `traceId`, `spanId`, `jobId`, `agentUuid`, `commandId`,
+`collectionCycleId`, `runId`, `workId`, `stageId`, `deviceId`) as a compact
 `{k=v …}` suffix. That render list is a display convenience; the full vocabulary above is
 what the contract covers, and unrendered keys are still present in the JSON.
 
@@ -370,53 +375,36 @@ The application must supply:
 
 ### Python (kaleidoscope-agent)
 
-Replace the file handler's `logging.Formatter(log_format)` with an NDJSON formatter, and add
-a `contextvars`-backed filter for the correlation keys. `FancyFormatter` stays as-is for the
-console. Sketch:
+The tested companion package is in `python/` (install locally with
+`python -m pip install ./python`). It requires Python 3.10+ and no runtime dependencies.
+Use its formatter adapter on the application's existing handlers:
 
 ```python
-import json, logging, os, socket, time, traceback
-from contextvars import ContextVar
+from ntlogger import protect_handler, log_context, secret_values
 
-LOG_CTX: ContextVar[dict] = ContextVar("log_ctx", default={})
-_PINO = {5: 5, 10: 20, 20: 30, 30: 40, 40: 50, 50: 60}          # py levelno -> pino
-_NAME = {5: "trace", 10: "debug", 20: "info", 30: "warn", 40: "error", 50: "fatal"}
-_KEYMAP = {"command_id": "commandId", "agent_uuid": "agentUuid",
-           "tenant_id": "tenantId", "collection_cycle_id": "collectionCycleId"}
+# Keep SafeRotatingFileHandler, its per-mode path, rotation and ACL behavior.
+protect_handler(file_handler, json_output=True, mode="service")
+protect_handler(console_handler, mode="service")  # preserves the existing text formatter
 
-class ContextFilter(logging.Filter):
-    def filter(self, record):
-        record.ntl_ctx = {_KEYMAP.get(k, k): v for k, v in LOG_CTX.get().items()}
-        return True
-
-class NdjsonFormatter(logging.Formatter):
-    def __init__(self, mode, service="kaleidoscope-agent"):
-        super().__init__()
-        self.mode, self.service, self.host = mode, service, socket.gethostname()
-
-    def format(self, record):
-        out = {
-            "time": int(record.created * 1000),
-            "level": _PINO.get(record.levelno, 30),
-            "levelName": _NAME.get(record.levelno, record.levelname.lower()),
-            "msg": record.getMessage(),
-            "module": f"{self.mode}.{record.name}",
-            "service": self.service,
-            "pid": os.getpid(),
-            "hostname": self.host,
-        }
-        out.update(getattr(record, "ntl_ctx", {}))
-        if record.exc_info:
-            et, ev, tb = record.exc_info
-            out["err"] = {"type": et.__name__, "message": str(ev),
-                          "stack": "".join(traceback.format_exception(et, ev, tb))}
-        return json.dumps(redact(out), separators=(",", ":"), default=str)
+with log_context(agent_uuid="a1", run_id="r1", work_id="w1"):
+    with secret_values([credential_value]):
+        logger.info("scan started", extra={"device_id": "d1"})
 ```
 
-Checklist: NTL level names (`warn` not `warning`, `fatal` not `critical`); `TRACE = 5` maps
-to Pino 10; `module` is `<mode>.<logger name>` where mode is one of `service`, `watchdog`,
-`tray`, `tray_watchdog`, `collect`, `install`, `register`, `webserver`; snake_case →
-camelCase on every context key; `redact()` implements §6; no ANSI in the NDJSON handler.
+Python TRACE 5 maps to Pino **10**; DEBUG 10 maps to 20, INFO 20 to 30,
+WARNING 30 to 40, ERROR 40 to 50 and CRITICAL 50 to 60. The adapter preserves
+exception type/message/stack, normalizes correlation aliases and redacts both
+text and structured output. Text wrapping also restores exception details when
+a custom formatter only calls `record.getMessage()`.
+
+For QueueHandler/QueueListener setups, attach `SnapshotFilter` to the **producer**
+handler so context and redaction are captured before execution moves to another
+thread. See [the companion README](../python/README.md) for lifecycle and scope rules.
+
+Shared defaults and fixtures are in `contract/redaction.json` and
+`contract/conformance.json`. Run `node scripts/sync-python-contract.cjs` after changing
+JavaScript defaults; CI checks the generated snapshot and executes the same fixtures
+in JavaScript and Python. Rust adapters can consume these fixtures without a JS runtime.
 
 ### Rust (broker tier)
 

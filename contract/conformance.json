@@ -1,0 +1,133 @@
+{
+  "version": 1,
+  "levels": [
+    {
+      "python": 5,
+      "pino": 10,
+      "name": "trace"
+    },
+    {
+      "python": 10,
+      "pino": 20,
+      "name": "debug"
+    },
+    {
+      "python": 20,
+      "pino": 30,
+      "name": "info"
+    },
+    {
+      "python": 30,
+      "pino": 40,
+      "name": "warn"
+    },
+    {
+      "python": 40,
+      "pino": 50,
+      "name": "error"
+    },
+    {
+      "python": 50,
+      "pino": 60,
+      "name": "fatal"
+    }
+  ],
+  "redaction": [
+    {
+      "input": {
+        "community": "public",
+        "authPassword": "ab",
+        "priv_password": "private",
+        "passphrase": "with spaces",
+        "privateKey": "key",
+        "runId": "r1"
+      },
+      "expected": {
+        "community": "[REDACTED]",
+        "authPassword": "[REDACTED]",
+        "priv_password": "[REDACTED]",
+        "passphrase": "[REDACTED]",
+        "privateKey": "[REDACTED]",
+        "runId": "r1"
+      }
+    },
+    {
+      "input": "community=public authPassword=ab passphrase=\"with spaces\"",
+      "expected": "community=[REDACTED] authPassword=[REDACTED] passphrase=[REDACTED]"
+    },
+    {
+      "input": "{'privPassword': 'ab', 'community': 'x'}",
+      "expected": "{'privPassword': [REDACTED], 'community': [REDACTED]}"
+    },
+    {
+      "input": {
+        "nested": [
+          {
+            "authorization": "Bearer example-secret",
+            "X-Device-Installation-Secret": "key"
+          }
+        ],
+        "agentUuid": "a1",
+        "token": null
+      },
+      "expected": {
+        "nested": [
+          {
+            "authorization": "[REDACTED]",
+            "X-Device-Installation-Secret": "[REDACTED]"
+          }
+        ],
+        "agentUuid": "a1",
+        "token": null
+      }
+    },
+    {
+      "input": "https://user:secret@example.test/path Bearer abcdefghijklmnop",
+      "expected": "https://user:[REDACTED]@example.test/path Bearer [REDACTED]"
+    },
+    {
+      "input": "-----BEGIN PRIVATE KEY-----\nexample\n-----END PRIVATE KEY-----",
+      "expected": "[REDACTED]"
+    },
+    {
+      "input": "password=secret",
+      "expected": "password=[REDACTED]"
+    },
+    {
+      "input": "AKIA1234567890ABCDEF",
+      "expected": "[REDACTED]"
+    },
+    {
+      "input": "eyJabcdef.abcdefgh.abcdefgh",
+      "expected": "[REDACTED]"
+    },
+    {
+      "input": "ghp_aaaaaaaaaaaaaaaaaaaaaaaa",
+      "expected": "[REDACTED]"
+    },
+    {
+      "input": "xoxb-aaaaaaaaaaaa",
+      "expected": "[REDACTED]"
+    },
+    {
+      "input": "sk_live_aaaaaaaaaaaa",
+      "expected": "[REDACTED]"
+    },
+    {
+      "input": "Basic QWxhZGRpbjpvcGVuIHNlc2FtZQ==",
+      "expected": "Basic [REDACTED]"
+    },
+    {
+      "input": "https://discord.com/api/webhooks/123456789/abcXYZ-secret",
+      "expected": "https://discord.com/api/webhooks/123456789/[REDACTED]"
+    },
+    {
+      "input": "passphrase=\"unterminated with spaces",
+      "expected": "passphrase=[REDACTED]"
+    },
+    {
+      "input": "community=[private]",
+      "expected": "community=[REDACTED]"
+    }
+  ]
+}

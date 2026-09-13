@@ -247,6 +247,7 @@ declare namespace ntlPinoTransport {
     export type NtlPinoLogger = NtlPinoExtras & PinoLogger;
 
     /** Create a pre-configured Pino logger that follows NightTimeLogger conventions. */
+    export function withSecretValues<T>(values: string[], callback: () => T): T;
 
     export function createLogger(opts?: CreateLoggerOptions): NtlPinoLogger;
 

@@ -236,6 +236,7 @@ declare function logger(location?: string, config?: logger.LoggerConfig): logger
 
 declare namespace logger {
     /** Opt in to process-wide signal handlers; returns an unregister function. */
+    function withSecretValues<T>(values: string[], callback: () => T): T;
     function setupSignalHandlers(options?: { timeout?: number }): () => void;
 }
 

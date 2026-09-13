@@ -362,7 +362,15 @@ function buildPinoOptions(opts = {}) {
   // --- redaction / features (skipped entirely in silent mode) ------------
   let redactor = null;
   let features = null;
-
+  const secretScope = require('./lib/secretScope');
+  loggerOpts.hooks.streamWrite = line => {
+    // Interpolation can stringify Errors/Buffers after logMethod has run. Scrub
+    // final string fields while a secret scope is active, before observers see them.
+    if (redactor && secretScope.hasSecretValues()) {
+      line = JSON.stringify(redactor.redactObject(JSON.parse(line))) + '\n';
+    }
+    return observer.streamWrite(line);
+  };
 
   if (!silent) {
     const redaction = resolveRedaction(opts.redact);
@@ -546,3 +554,5 @@ function createTestLogger(opts = {}) {
 
 module.exports.createPinoOptions = createPinoOptions;
 module.exports.createTestLogger = createTestLogger;
+
+module.exports.withSecretValues = require('./lib/secretScope').withSecretValues;

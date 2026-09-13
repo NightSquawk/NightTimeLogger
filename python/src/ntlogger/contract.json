@@ -1,0 +1,115 @@
+{
+  "version": 1,
+  "keys": [
+    "password",
+    "passwd",
+    "pass",
+    "pwd",
+    "secret",
+    "token",
+    "apikey",
+    "api_key",
+    "x-api-key",
+    "authorization",
+    "proxy-authorization",
+    "cookie",
+    "set-cookie",
+    "x-device-installation-secret",
+    "installationsecret",
+    "privatekey",
+    "private_key",
+    "clientsecret",
+    "client_secret",
+    "accesstoken",
+    "access_token",
+    "refreshtoken",
+    "refresh_token",
+    "idtoken",
+    "id_token",
+    "sessiontoken",
+    "credential",
+    "credentials",
+    "webhookurl",
+    "snmpcommunity",
+    "community_string",
+    "community",
+    "authPassword",
+    "privPassword",
+    "passphrase"
+  ],
+  "patterns": [
+    {
+      "source": "-----BEGIN (?:[A-Z]+ )*PRIVATE KEY-----[\\s\\S]*?-----END (?:[A-Z]+ )*PRIVATE KEY-----",
+      "flags": "g"
+    },
+    {
+      "source": "\\bAKIA[0-9A-Z]{16}\\b",
+      "flags": "g"
+    },
+    {
+      "source": "\\beyJ[A-Za-z0-9_-]{5,}\\.[A-Za-z0-9_-]{5,}\\.[A-Za-z0-9_-]{5,}",
+      "flags": "g"
+    },
+    {
+      "source": "\\b(?:gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,})",
+      "flags": "g"
+    },
+    {
+      "source": "\\bxox[abpors]-[A-Za-z0-9-]{10,}",
+      "flags": "gi"
+    },
+    {
+      "source": "\\b(?:[sr]k_(?:live|test)_[A-Za-z0-9]{10,}|whsec_[A-Za-z0-9]{10,})",
+      "flags": "g"
+    },
+    {
+      "source": "(?<pre>\\bBearer\\s+)[A-Za-z0-9\\-._~+/]{8,}={0,2}",
+      "flags": "gi"
+    },
+    {
+      "source": "(?<pre>\\bBasic\\s+)(?=[A-Za-z0-9+/]*[A-Z0-9])[A-Za-z0-9+/]{16,}={0,2}",
+      "flags": "g"
+    },
+    {
+      "source": "(?<pre>https?:\\/\\/(?:[a-z]+\\.)?discord(?:app)?\\.com\\/api\\/(?:v\\d+\\/)?webhooks\\/\\d+\\/)[A-Za-z0-9_-]+",
+      "flags": "gi"
+    },
+    {
+      "source": "(?<pre>[\"']?\\b(?:snmp[_-]?community|community(?:[_-]?string)?|auth[_-]?password|priv[_-]?password|passphrase)[\"']?\\s*[:=]\\s*)(?:\"(?:\\\\.|[^\"\\\\])*(?:\"|$)|'(?:\\\\.|[^'\\\\])*(?:'|$)|[^\\s,;}]+)",
+      "flags": "gi"
+    },
+    {
+      "source": "(?<pre>\\b(?:api[_-]?key|apikey|access[_-]?key|access[_-]?token|refresh[_-]?token|secret[_-]?key|client[_-]?secret|password|passwd|pwd|auth[_-]?token|private[_-]?key|token|secret)\\s*[:=]\\s*[\"']?)[^\\s'\",;]{4,}",
+      "flags": "gi"
+    },
+    {
+      "source": "(?<pre>\\b(?:password|passwd|secret|token|api[_-]?key)\\s*[=:]\\s*)(?![\"'[])\\S+",
+      "flags": "gi"
+    },
+    {
+      "source": "(?<pre>\\b[a-z][a-z0-9+.-]*:\\/\\/[^\\s:/?#@]*:)[^\\s/?#@]+(?<post>@)",
+      "flags": "gi"
+    }
+  ],
+  "pythonLevels": {
+    "5": 10,
+    "10": 20,
+    "20": 30,
+    "30": 40,
+    "40": 50,
+    "50": 60
+  },
+  "contextAliases": {
+    "agent_uuid": "agentUuid",
+    "tenant_id": "tenantId",
+    "command_id": "commandId",
+    "collection_cycle_id": "collectionCycleId",
+    "correlation_id": "correlationId",
+    "run_id": "runId",
+    "work_id": "workId",
+    "stage_id": "stageId",
+    "device_id": "deviceId",
+    "trace_id": "traceId",
+    "span_id": "spanId"
+  }
+}

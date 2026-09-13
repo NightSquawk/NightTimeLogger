@@ -42,7 +42,9 @@
     "./eslint": {
       "types": "./eslint.d.ts",
       "default": "./eslint.js"
-    }
+    },
+    "./contract/redaction.json": "./contract/redaction.json",
+    "./contract/conformance.json": "./contract/conformance.json"
   },
   "types": "./index.d.ts",
   "files": [
@@ -55,12 +57,15 @@
     "transports/",
     "eslint.js",
     "eslint.d.ts",
-    "eslint-rules/"
+    "eslint-rules/",
+    "contract/"
   ],
   "scripts": {
     "test": "jest",
     "test:coverage": "jest --runInBand --coverage",
-    "test:unit": "jest --runInBand --testPathIgnorePatterns=tests/plugins/mysql.test.js tests/plugins/postgres.test.js"
+    "test:unit": "jest --runInBand --testPathIgnorePatterns=tests/plugins/mysql.test.js tests/plugins/postgres.test.js",
+    "test:python": "python3 -W error -m unittest discover -s python/tests",
+    "test:contract": "node scripts/sync-python-contract.cjs --check"
   },
   "optionalDependencies": {
     "split2": "^4.2.0"
