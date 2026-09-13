@@ -23,14 +23,34 @@ jobs:
           node-version: ${{ matrix.node }}
           cache: npm
       - run: npm ci
+      - run: npm run test:contract
       - run: npm run test:coverage
         env:
           REQUIRE_DOCKER_TESTS: '1'
       - run: npm audit --omit=dev
+      - run: npm run test:package
+      - run: npm run test:package
+        env:
+          NTLOGGER_TEST_PINO_VERSION: '9.14.0'
       - run: npm pack --dry-run
 
+  python:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python: ['3.10', '3.14']
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python }}
+      - run: python -W error -m unittest discover -s python/tests
+      - run: python scripts/test-python-package.py
+
   publish:
-    needs: test
+    needs: [test, python]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
     permissions:

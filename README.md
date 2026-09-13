@@ -1,6 +1,6 @@
 # NightTimeLogger
 
-NightTimeLogger is a custom logging wrapper built on top of the Winston logging library. It provides a ready-to-go solution for integrating advanced logging functionalities into Node.js applications with ease.
+NightTimeLogger provides Winston and Pino logging backends with shared logging conventions. Install the backend your application uses.
 
 [![Node.js Package](https://github.com/NightSquawk/NightTimeLogger/actions/workflows/main.yml/badge.svg?branch=main)](https://github.com/NightSquawk/NightTimeLogger/actions/workflows/main.yml)
 
@@ -13,7 +13,7 @@ const logger = require('ntlogger');
 const unregister = logger.setupSignalHandlers({ timeout: 30000 });
 ```
 
-Alternatively, keep your application's own shutdown handlers and `await log.close()` there. Importing the package no longer changes process exception or signal handling. Flush and close reject on delivery errors/timeouts, so callers should handle rejected promises. Close is idempotent, waits for transport cleanup, and removes the logger from its cache. Children share their parent's transports; closing a child flushes but does not close the parent. On this Winston API, log calls after close throw an error. See the Pino lifecycle note below for its different behavior.
+Alternatively, keep your application's own shutdown handlers and `await log.close()` there. Importing the package no longer changes process exception or signal handling. Flush and close reject on delivery errors/timeouts, so callers should handle rejected promises. Close is idempotent, waits for transport cleanup, and removes the logger from its cache. Children share their parent's transports; closing a child flushes but does not close the parent. Log calls after close throw on both backends. See the Pino lifecycle note below for its drain result contract.
 
 OpenTelemetry users must upgrade the logs SDK/API/HTTP exporter together to `^0.222.0` and resources to `^2.11.0`. Earlier SDK versions are no longer advertised as compatible. Database transports now own separate pools, use event timestamps in UTC, accept `ssl` configuration, and require simple SQL table identifiers. Existing tables are not altered automatically.
 
@@ -35,14 +35,29 @@ OpenTelemetry users must upgrade the logs SDK/API/HTTP exporter together to `^0.
 
 ## Installation
 
-To install NightTimeLogger, use npm:
+For Pino or Fastify:
 
 ```bash
-npm install ntlogger
+npm install ntlogger pino
 ```
 
-The core package depends only on `winston` and `winston-transport`, so a default
-install stays small.
+Import helpers from `ntlogger/pino`. This installation does not pull in Winston or
+its transports. The small `split2` dependency supports the development formatter.
+
+For the Winston API and its plugins:
+
+```bash
+npm install ntlogger winston winston-transport
+```
+
+Import `ntlogger` as before. Both backends are optional peers, so install the one
+you use; applications using both entry points should install all three peers.
+
+**Upgrade note:** Winston and `winston-transport` were previously installed by
+ntlogger automatically. Existing Winston consumers must add them as direct
+production dependencies using the command above before upgrading. This is a
+breaking installation change intended for the next major release; no package
+version or published release is changed by this development update.
 
 ### Optional plugin backends
 
@@ -57,8 +72,8 @@ Install only the ones whose plugins you actually enable:
 | OpenTelemetry | `npm install @opentelemetry/api @opentelemetry/api-logs @opentelemetry/sdk-logs @opentelemetry/exporter-logs-otlp-http @opentelemetry/resources @opentelemetry/semantic-conventions` |
 | Discord, Teams, OpenObserve, Syslog, Jest | none - no extra packages required |
 
-Plugin modules are resolved lazily, so a missing peer never breaks
-`require('ntlogger')`. The loader reports an actionable error naming the package and
+Plugin modules are resolved lazily, so a missing plugin backend never breaks
+`require('ntlogger')` when the Winston peers are installed. The loader reports an actionable error naming the package and
 the install command, skips that one plugin, and keeps every other plugin working.
 See [plugins/README.md](https://github.com/NightSquawk/NightTimeLogger/blob/main/plugins/README.md)
 for per-plugin configuration.
@@ -255,8 +270,8 @@ It provides an NTL-styled transport plus `createLogger()`, which wires the NTL c
 (module label, structured context, secret redaction, sampling, graceful shutdown) onto a real
 Pino logger.
 
-`pino` is an optional peer dependency and `split2` an optional dependency — Winston-only users
-install neither.
+`pino` is an optional peer dependency, so Winston-only users do not install it.
+`split2` is a small optional dependency installed by default for the Pino formatter.
 
 ### Transport only
 
@@ -384,13 +399,13 @@ const log = createLogger({
   deduplication: { enabled: true, threshold: 3, window: 60000 },
 });
 
-log.getStats();    // { sampling: {...}, deduplication: {...} }
+log.getStats();    // { sampling: {...}, deduplication: {...}, levels: {...}, hookErrors: 0 }
 log.resetStats();
 await log.close(); // releases the sampler/dedup timers, then flushes the destination
 ```
 
 `fatal` is never sampled, rate limited or deduplicated unless the configuration names it
-explicitly. Zero-config loggers install no feature hook at all.
+explicitly. Per-level counts are collected even without sampling or deduplication.
 
 ### Silent mode
 
@@ -400,8 +415,8 @@ Resolution order:
 2. `NTLOGGER_SILENT` — `1`/`true`/`yes` → silent, `0`/`false`/`no` → not silent
 3. `NODE_ENV === 'test'` or nonempty `NODE_TEST_CONTEXT` → silent
 
-A silent logger runs at Pino level `silent`, attaches no transport and installs no hooks, so
-test suites pay nothing for logging. `isSilent(opts)` is exported for testing the resolution.
+A silent logger runs at Pino level `silent`, attaches no transport and emits no
+records, counts, or observer callbacks. `isSilent(opts)` is exported for testing the resolution.
 
 ```javascript
 const log = createLogger({ module: 'API' });          // silent under Jest (NODE_ENV=test)
@@ -471,12 +486,153 @@ Sampling and level filtering apply normally. Clear captured records with
 
 ### Pino lifecycle
 
-Pino's `close()` helper releases feature timers and drains buffered output. It does
-not mark the logger closed or guarantee that subsequent calls throw. A supplied
-writable destination may still accept writes; an ended transport may reject them.
-Stop producers before closing, and do not reuse the logger afterward. The Winston
-API enforces a closed-state error; this distinction is intentional documentation of
-the current behavior, not a new lifecycle guarantee.
+Pino's `close(timeout?)` marks the logger closed immediately, releases root feature
+timers, and drains the destination and pending observer work. It is idempotent and
+resolves to `{ drained: true }` or `{ drained: false, error }`; inspect that result.
+Winston's close continues to reject on flush failures.
+
+Calls after close throw, including disabled levels, previously extracted log methods,
+and descendants of a closed logger. Closing a child leaves its parent and siblings
+open and keeps shared feature timers running. Changing a closed logger's level does
+not reopen it. Shutdown does not end a caller-supplied destination or shut down an
+application-owned OTel provider.
+
+### Tee callbacks and emitted counts
+
+Both `createLogger()` from `ntlogger/pino` and the Winston configuration accept `onLog`:
+
+```javascript
+const { createLogger } = require('ntlogger/pino');
+const log = createLogger({
+  onLog: record => dashboard.publish(record), // your dashboard/WebSocket adapter
+});
+log.child({ jobId: 'j1' }).warn({ deviceId: 'd1' }, 'retry');
+console.log(log.getStats().levels.warn); // 1
+await log.close();
+```
+
+The callback receives a detached record after redaction, context merging and filtering.
+Pino supplies its final serialized fields, including numeric `level` and `msg`. Winston
+supplies its record before transport-specific formatting, with a level name and `message`. Winston now also applies the default redactor before dispatching to its
+transports; `redact: false` explicitly disables protection on either backend.
+
+`getStats().levels` contains zero-initialized trace/debug/info/warn/error/fatal/internal
+counts shared with children. These count records prepared for output, not successful
+network delivery. Sampling/rate-limit/dedup drops and disabled levels do not count.
+Winston's asynchronous calls are reflected after `await log.flush()`.
+`resetStats()` clears level, sampling, dedup and `hookErrors` counters.
+
+Callback exceptions and rejected promises do not interrupt primary logging; they
+increment `hookErrors`. Logs made by callbacks still reach primary output but do not
+invoke observers again, including across asynchronous continuations. Async callbacks
+are awaited by Pino close and Winston flush/close, bounded by the shutdown timeout.
+`onLogMaxPending` caps in-flight callback promises (default 100; zero disables callbacks).
+At capacity, the newest callback is dropped; the primary log and OTel export continue.
+Already-running promises are never cancelled. `getStats().onLog` reports `pending`,
+`dropped`, and `limit`; reset clears drops but preserves the live pending gauge.
+Callback mutation cannot change the primary log or its OTel export. Return the delivery
+promise if it needs to be included in shutdown; detached background work is not tracked.
+
+Pino **9.14 or newer** is required for the serialized-output hook. This raises the old
+Pino 8 minimum and belongs with the next major release's installation migration.
+
+### Scoped credential values
+
+Scanner defaults include `community`, `authPassword`, `privPassword`, and `passphrase`,
+including case/hyphen/underscore aliases and short or quoted free-text values. For an
+opaque credential that might appear in an error without a recognizable key:
+
+```javascript
+const { createLogger, withSecretValues } = require('ntlogger/pino');
+const log = createLogger({ module: 'scanner' });
+await withSecretValues([credentialValue], async () => {
+  log.info({ runId, workId }, 'scan started');
+  await runScan();
+});
+```
+
+`withSecretValues` is also exported by the Winston entry point. It scopes literal-value
+redaction to the callback and its async descendants, restores the parent afterward,
+and handles JSON-escaped forms. Use nonempty strings, at most 128 distinct values of
+65536 characters each. Short values can obscure unrelated text. Descendant tasks inherit
+secrets until they finish; avoid unrelated background work inside the scope. Explicit
+`redact: false` disables this protection along with other redaction. Context fields
+`runId`, `workId`, `stageId`, `deviceId`, and `collectionCycleId` now render in Pino's
+pretty context suffix as well as remaining searchable in JSON.
+
+### Python companion and shared contract
+
+A dependency-free Python 3.10+ companion is maintained in [python/](python/README.md).
+It provides `protect_handler`, `NdjsonFormatter`, `SafeFormatter`, `log_context`,
+`secret_values`, `SnapshotFilter`, and `create_test_logger`. Existing agent handlers,
+per-mode filenames, rotation and permissions remain application-owned. The companion
+adds sanitized structured records and exception details without requiring Node.
+Install locally with `python -m pip install ./python`; the new Python package is not
+published. Agent adoption is documented rather than applied to its repository.
+
+Shared redaction snapshots and conformance fixtures are exported at
+`ntlogger/contract/redaction.json` and `ntlogger/contract/conformance.json`. The Python
+wheel bundles the same defaults. `npm run test:contract` verifies generation; both
+language suites run the fixtures, including Python TRACE 5 → Pino 10.
+
+### OpenTelemetry correlation and export
+
+Use your existing logs SDK provider and processors; ntlogger does not create a global
+provider or a second pipeline. With a batch processor and OTLP exporter already attached:
+
+```javascript
+const { createLogger } = require('ntlogger/pino');
+const log = createLogger({ otel: { loggerProvider, name: 'worker' } });
+// Inside your application's active span:
+log.info({ jobId: 'j1' }, 'job started');
+const result = await log.close(); // calls the supplied provider's forceFlush(), if present
+// Shut down the application-owned provider separately when all producers have stopped.
+```
+
+Enable a context manager/tracing SDK in the application so the active span is available.
+The bridge adds `traceId`, `spanId` and `traceFlags` to Pino JSON and supplies the active
+context to the OTel SDK, with correct severity mapping and redacted attributes. Nested
+attributes are JSON strings; Pino error fields also map to OTel exception attributes.
+No active span means no invented trace IDs. `otel: true` uses the globally registered
+logs provider; without a configured SDK provider that provider is a no-op. Install
+`@opentelemetry/api` and `@opentelemetry/api-logs` plus your chosen SDK/exporter packages
+only when enabling this option. Both backends support the option; do not also enable
+the Winston OTel plugin for the same output or records will be exported twice.
+
+`createPinoOptions()` also accepts `onLog` and `otel`. Fastify still owns its lifecycle;
+track async callback promises and flush the provider in your application shutdown hook.
+It does not gain ntlogger's counters or close method. SDK exporters can report delivery
+errors through their own diagnostics rather than rejecting provider flush; a successful
+drain alone is not a delivery acknowledgment.
+
+The library tests verify real SDK records and HTTP OTLP delivery to a local collector.
+The API/worker deployments still need adoption and a check of their own collector routing.
+
+### Structured logging lint rule
+
+The optional ESLint plugin supports ESLint 9+ and has no runtime logger dependencies.
+Enable it for Pino call sites in a flat configuration:
+
+```javascript
+const ntlogger = require('ntlogger/eslint');
+module.exports = [{
+  files: ['src/**/*.js'],
+  plugins: { ntlogger },
+  rules: {
+    'ntlogger/prefer-object-first': ['warn', {
+      loggerNames: ['log', 'logger', 'req.log', 'request.log'],
+    }],
+  },
+}];
+```
+
+It reports interpolated first-argument template strings. `--fix` adds searchable fields
+while retaining the original message only when each expression is a known primitive
+`const` identifier and there are no other arguments. Calls, getters, mutable values and
+complex expressions are reported without a fix. Convert those manually, for example
+`log.info({ deviceId: device.id }, 'scan started')`. Receiver matching is configurable
+and syntactic; scope the rule to Pino code, since Winston's message-first methods have
+a different contract. Consumer call-site migrations are not performed in this repository.
 
 ### Process handlers
 
@@ -534,3 +690,5 @@ NightTimeLogger is licensed under the [GPL-3.0 License](https://opensource.org/l
 Run `npm ci` and `npm run test:coverage` for the complete suite. MySQL and PostgreSQL integration tests start disposable Docker containers; CI sets `REQUIRE_DOCKER_TESTS=1` so they cannot silently skip. `npm run test:unit` excludes those two Docker suites for local work. `npm audit` checks all dependencies; `npm audit --omit=dev` checks production dependencies.
 
 HTTP transports (Discord, Teams, OpenObserve) accept `timeout` (5000 ms per attempt), `maxRetries` (3), `retryDelay` (1000 ms), and `maxPending` (100 outstanding deliveries). They retry connection failures, HTTP 429 and 5xx with bounded backoff. Queue overflow, terminal HTTP errors, and timeouts surface through callbacks/flush. Delivery is best-effort with retries, not durable storage; an ambiguous network failure can lead to a duplicate on retry. OpenObserve retains batching and flush now waits for responses. Increase `shutdownTimeout` if you configure longer retries.
+
+Packed installation checks: run `npm run test:package`. This requires npm registry access and uses temporary consumer directories to verify Pino-only and Winston-only installs.
