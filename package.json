@@ -1,7 +1,7 @@
 {
   "name": "ntlogger",
   "version": "3.0.0",
-  "description": "A Custom Ready-To-Go Logging Wrapper Built on Winston",
+  "description": "Structured logging with Winston and Pino backends",
   "keywords": [
     "custom logger",
     "discord compatible",
@@ -55,24 +55,22 @@
     "test:coverage": "jest --runInBand --coverage",
     "test:unit": "jest --runInBand --testPathIgnorePatterns=tests/plugins/mysql.test.js tests/plugins/postgres.test.js"
   },
-  "dependencies": {
-    "winston": "^3.19.0",
-    "winston-transport": "^4.9.0"
-  },
   "optionalDependencies": {
     "split2": "^4.2.0"
   },
   "peerDependencies": {
-    "pino": ">=8.0.0",
+    "@opentelemetry/api": ">=1.9.0",
+    "@opentelemetry/api-logs": "^0.222.0",
+    "@opentelemetry/exporter-logs-otlp-http": "^0.222.0",
+    "@opentelemetry/resources": "^2.11.0",
+    "@opentelemetry/sdk-logs": "^0.222.0",
+    "@opentelemetry/semantic-conventions": ">=1.20.0",
     "@sentry/node": "^10.74.0",
     "mysql2": "^3.24.4",
     "pg": "^8.23.0",
-    "@opentelemetry/api": ">=1.9.0",
-    "@opentelemetry/api-logs": "^0.222.0",
-    "@opentelemetry/sdk-logs": "^0.222.0",
-    "@opentelemetry/exporter-logs-otlp-http": "^0.222.0",
-    "@opentelemetry/resources": "^2.11.0",
-    "@opentelemetry/semantic-conventions": ">=1.20.0"
+    "pino": ">=8.0.0",
+    "winston": "^3.19.0",
+    "winston-transport": "^4.9.0"
   },
   "peerDependenciesMeta": {
     "pino": {
@@ -104,23 +102,33 @@
     },
     "@opentelemetry/semantic-conventions": {
       "optional": true
+    },
+    "winston": {
+      "optional": true
+    },
+    "winston-transport": {
+      "optional": true
     }
   },
   "devDependencies": {
+    "@opentelemetry/context-async-hooks": "^2.11.0",
+    "@opentelemetry/exporter-logs-otlp-http": "^0.222.0",
+    "@opentelemetry/sdk-logs": "^0.222.0",
     "@sentry/node": "^10.74.0",
     "@sentry/profiling-node": "^10.74.0",
-    "mysql2": "^3.24.4",
-    "pg": "^8.23.0",
     "@testcontainers/mysql": "^12.1.0",
     "@testcontainers/postgresql": "^12.1.0",
     "dotenv": "^17.4.2",
-    "jest": "^30.5.1",
-    "testcontainers": "^12.1.0",
-    "pino": "^10.3.1",
-    "@opentelemetry/sdk-logs": "^0.222.0",
-    "@opentelemetry/exporter-logs-otlp-http": "^0.222.0",
+    "eslint": "^10.10.0",
     "fastify": "^5.12.4",
-    "typescript": "^5.9.3"
+    "jest": "^30.5.1",
+    "mysql2": "^3.24.4",
+    "pg": "^8.23.0",
+    "pino": "^10.3.1",
+    "testcontainers": "^12.1.0",
+    "typescript": "^5.9.3",
+    "winston": "^3.19.0",
+    "winston-transport": "^4.9.0"
   },
   "engines": {
     "node": ">=22.22.2"

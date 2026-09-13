@@ -114,4 +114,20 @@
  * Initial release
  */
 
+// Only the Winston entry point resolves these peers. Pino consumers never load it.
+for (const peer of ['winston', 'winston-transport']) {
+    try {
+        require.resolve(peer);
+    } catch (cause) {
+        if (cause.code !== 'MODULE_NOT_FOUND') throw cause;
+        const error = new Error(
+            `ntlogger's Winston backend requires ${peer}. Run: npm install winston winston-transport. ` +
+            `For Pino, import 'ntlogger/pino' instead.`,
+            { cause },
+        );
+        error.code = 'MODULE_NOT_FOUND';
+        throw error;
+    }
+}
+
 module.exports = require('./lib/logger');
