@@ -127,6 +127,9 @@ declare namespace ntlPinoTransport {
 
     /** Snapshot returned by `logger.getStats()`. Members are `null` when unconfigured. */
     export interface NtlPinoStats {
+        levels: Record<NtlLevel, number>;
+        hookErrors: number;
+        onLog: { pending: number; dropped: number; limit: number };
         sampling: SamplingStats | null;
         deduplication: DeduplicationStats | null;
     }
@@ -176,6 +179,12 @@ declare namespace ntlPinoTransport {
 
     /** Options for `createLogger()`. */
     export interface CreateLoggerOptions {
+        /** Receives a detached redacted record; async work is drained by close(). */
+        /** Maximum in-flight callback promises; overflow drops newest callback, not the primary log. */
+        onLogMaxPending?: number;
+        onLog?: (record: Record<string, any>) => void | Promise<void>;
+        /** Use the application's OTel provider; never registers or shuts down a provider. */
+        otel?: boolean | { loggerProvider?: { getLogger(name: string): { emit(record: any): void }; forceFlush?(): Promise<void> }; name?: string };
         /** Pino level. Defaults to `LOG_LEVEL`, else `debug` in dev / `info` in production. */
         level?: string;
         /** Module label added to every line and used as the transport's default label. */
@@ -215,13 +224,13 @@ declare namespace ntlPinoTransport {
      * properties, so children inherit them through the prototype chain.
      */
     export interface NtlPinoExtras {
-        /** Sampling and deduplication counters. */
+        /** Emitted level counts, callback/export hook errors, sampling and deduplication. */
         getStats(): NtlPinoStats;
-        /** Zero the sampling and deduplication counters. */
+        /** Zero all counters shared by the root and its children. */
         resetStats(): void;
         /**
          * Release sampler/deduplicator timers, then drain the destination.
-         * Calling this on a child tears down state shared with its parent.
+         * Closing a child leaves its parent open. Calls after close throw, even at disabled levels.
          */
         close(timeout?: number): Promise<DrainResult>;
         /** Present only when `processHandlers` was enabled. */
@@ -238,11 +247,12 @@ declare namespace ntlPinoTransport {
     export type NtlPinoLogger = NtlPinoExtras & PinoLogger;
 
     /** Create a pre-configured Pino logger that follows NightTimeLogger conventions. */
+
     export function createLogger(opts?: CreateLoggerOptions): NtlPinoLogger;
 
     /** Framework-owned JSON logger options; no ntlogger lifecycle or timers. */
     export type CreatePinoOptions = Pick<CreateLoggerOptions,
-        'level' | 'module' | 'service' | 'context' | 'contextProvider' | 'contextKeys' | 'redact' | 'silent'
+        'level' | 'module' | 'service' | 'context' | 'contextProvider' | 'contextKeys' | 'redact' | 'silent' | 'onLog' | 'onLogMaxPending' | 'otel'
     > & { serializers?: LoggerOptions['serializers'] };
     export function createPinoOptions(opts?: CreatePinoOptions): LoggerOptions;
 

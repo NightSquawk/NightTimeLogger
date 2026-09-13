@@ -53,6 +53,11 @@ declare namespace logger {
      * Logger configuration options
      */
     export interface LoggerConfig {
+        /** Maximum in-flight callback promises; overflow drops newest callback, not the primary log. */
+        onLogMaxPending?: number;
+        onLog?: (record: Record<string, any>) => void | Promise<void>;
+        otel?: boolean | { loggerProvider?: { getLogger(name: string): { emit(record: any): void }; forceFlush?(): Promise<void> }; name?: string };
+        redact?: false | { extraKeys?: string[]; patterns?: boolean; replacement?: string; maxDepth?: number; maxStringLength?: number };
         /** Minimum log level to be logged */
         level?: LogLevel;
         /** Enable console logging (default: true) */
@@ -95,6 +100,9 @@ declare namespace logger {
      * Statistics object returned by getStats()
      */
     export interface LoggerStats {
+        levels: Record<string, number>;
+        hookErrors: number;
+        onLog: { pending: number; dropped: number; limit: number };
         sampling: {
             total: Record<string, number>;
             sampled: Record<string, number>;
@@ -199,6 +207,7 @@ declare namespace logger {
          * @returns Statistics object
          */
         getStats(): LoggerStats;
+        resetStats(): void;
 
         /**
          * Flush all pending logs (returns Promise)

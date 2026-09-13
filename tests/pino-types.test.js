@@ -48,11 +48,13 @@ import type { Logger as PinoLogger } from 'pino';
 import Fastify, { FastifyInstance } from 'fastify';
 const app: FastifyInstance = Fastify({ logger: createPinoOptions({ service: 'api' }) });
 app.get('/', async (request) => { request.log.info({ deviceId: 'd1' }, 'scan'); return {}; });
-const captured = createTestLogger();
+const captured = createTestLogger({ onLogMaxPending: 10 });
 captured.logger.info('test');
 void captured.records[0].msg;
 
 const opts: CreateLoggerOptions = {
+    onLog: async record => { void record.msg; },
+    otel: { loggerProvider: { getLogger: () => ({ emit: record => { void record; } }) } },
     level: 'debug',
     module: 'Api',
     defaultModule: 'Api',
@@ -92,6 +94,9 @@ const totalDeduplicated: number = child.getStats().deduplication?.totalDeduplica
 const sampledPerLevel: Record<string, number> = log.getStats().sampling?.sampled ?? {};
 void totalDeduplicated;
 void sampledPerLevel;
+void log.getStats().levels.warn;
+void log.getStats().hookErrors;
+void log.getStats().onLog.pending;
 log.resetStats();
 log.uninstallProcessHandlers?.();
 void log.close(1000).then(result => result.drained);

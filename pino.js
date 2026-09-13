@@ -258,45 +258,62 @@ function composeLogMethod(redactor, features) {
  * @param {object} logger - Pino logger instance.
  * @param {object|null} features - Feature adapter from lib/pinoHooks.js.
  * @param {object|null} redactor - Redactor from lib/secretRedaction.js.
- * @returns {object} - The same logger, decorated.
+ * @param {object} observer - Emitted-record observer and counters.
+ * @returns {object} - Pino logger proxy enforcing lifecycle across level changes.
  */
-function decorateLogger(logger, features, redactor) {
-  const define = (name, value) => {
-    Object.defineProperty(logger, name, {
-      value,
-      writable: true,
-      configurable: true,
-      enumerable: false,
-    });
-  };
-
-  define('getStats', function getStats() {
-    return features ? features.getStats() : { sampling: null, deduplication: null };
+function decorateLogger(logger, features, redactor, observer) {
+  const states = new WeakMap();
+  const define = (name, value) => Object.defineProperty(logger, name, {
+    value, writable: true, configurable: true, enumerable: false,
   });
-
-  define('resetStats', function resetStats() {
-    if (features) features.resetStats();
+  define('getStats', () => ({
+    ...(features ? features.getStats() : { sampling: null, deduplication: null }),
+    ...observer.stats(),
+  }));
+  define('resetStats', () => { if (features) features.resetStats(); observer.reset(); });
+  define('close', function close(timeout = DEFAULT_CLOSE_TIMEOUT) {
+    const state = states.get(this);
+    if (state.promise) return state.promise;
+    state.closed = true;
+    if (!state.parent && features) features.destroy();
+    state.promise = (async () => {
+      const start = Date.now();
+      const result = await drainLogger(this, timeout);
+      try { await observer.flush(Math.max(1, timeout - (Date.now() - start))); }
+      catch (error) { return { drained: false, error }; }
+      return result;
+    })();
+    return state.promise;
   });
-
-  // Releases the sampler/deduplicator timers, then flushes whatever the
-  // destination still holds. Calling it on a child tears down the state shared
-  // with its parent — close the root logger.
-  define('close', function close(timeout) {
-    if (features) features.destroy();
-    return drainLogger(this, typeof timeout === 'number' ? timeout : DEFAULT_CLOSE_TIMEOUT);
+  const baseChild = logger.child;
+  define('child', function child(bindings, options) {
+    const safe = redactor && bindings && typeof bindings === 'object'
+      ? redactor.redactObject(bindings) : bindings;
+    return wrap(baseChild.call(this, safe, options), states.get(this));
   });
-
-  if (redactor) {
-    const baseChild = logger.child;
-    define('child', function child(bindings, options) {
-      const safe = bindings !== null && typeof bindings === 'object'
-        ? redactor.redactObject(bindings)
-        : bindings;
-      return baseChild.call(this, safe, options);
+  function wrap(target, parent = null) {
+    const state = { closed: false, parent, promise: null };
+    states.set(target, state);
+    const assertOpen = () => {
+      for (let current = state; current; current = current.parent) {
+        if (current.closed) throw new Error('Logger is closed');
+      }
+    };
+    const cache = new Map();
+    return new Proxy(target, {
+      get(raw, key) {
+        const value = Reflect.get(raw, key, raw);
+        if (typeof value !== 'function') return value;
+        const guarded = key === 'child' || key === 'silent' || Object.hasOwn(raw.levels.values, key);
+        // Pino regenerates methods on level changes. Cache only while unchanged.
+        if (cache.get(key)?.original === value) return cache.get(key).bound;
+        const bound = (...args) => { if (guarded) assertOpen(); return value.apply(raw, args); };
+        cache.set(key, { original: value, bound });
+        return bound;
+      },
     });
   }
-
-  return logger;
+  return wrap(logger);
 }
 
 /**
@@ -333,7 +350,8 @@ function buildPinoOptions(opts = {}) {
     ? 'silent'
     : (opts.level || process.env.LOG_LEVEL || (isDev ? 'debug' : 'info'));
 
-  const loggerOpts = { level };
+  const observer = require('./lib/logObserver').createLogObserver(opts);
+  const loggerOpts = { level, hooks: { streamWrite: observer.streamWrite } };
 
   // --- constant fields ---------------------------------------------------
   if (typeof opts.service === 'string' && opts.service.length > 0) {
@@ -344,6 +362,7 @@ function buildPinoOptions(opts = {}) {
   // --- redaction / features (skipped entirely in silent mode) ------------
   let redactor = null;
   let features = null;
+
 
   if (!silent) {
     const redaction = resolveRedaction(opts.redact);
@@ -376,7 +395,7 @@ function buildPinoOptions(opts = {}) {
     });
 
     const logMethod = composeLogMethod(redactor, features);
-    if (logMethod) loggerOpts.hooks = { logMethod };
+    if (logMethod) loggerOpts.hooks.logMethod = logMethod;
   }
 
   // --- context mixin ------------------------------------------------------
@@ -388,7 +407,7 @@ function buildPinoOptions(opts = {}) {
     ? opts.contextKeys.slice()
     : null;
 
-  if (!silent && (opts.module || staticContext || provider)) {
+  if (!silent && (opts.module || staticContext || provider || opts.otel)) {
     // Precedence, lowest to highest: base/service < module < context < contextProvider
     // < fields passed on the log call itself (Pino's default mixin merge strategy
     // assigns the merge object over the mixin output).
@@ -417,17 +436,17 @@ function buildPinoOptions(opts = {}) {
         }
       }
 
-      return out;
+      return Object.assign(out, observer.context());
     };
   }
 
-  return { loggerOpts, features, redactor, silent, isDev };
+  return { loggerOpts, features, redactor, silent, isDev, observer };
 }
 
 function createLogger(opts = {}) {
   const pino = require('pino');
   const path = require('path');
-  const { loggerOpts, features, redactor, silent, isDev } = buildPinoOptions(opts);
+  const { loggerOpts, features, redactor, silent, isDev, observer } = buildPinoOptions(opts);
 
   // --- destination / transport -------------------------------------------
   // `opts.destination` and `transport` are mutually exclusive in Pino, so an
@@ -444,8 +463,7 @@ function createLogger(opts = {}) {
     };
   }
 
-  const logger = destination ? pino(loggerOpts, destination) : pino(loggerOpts);
-  decorateLogger(logger, features, redactor);
+  const logger = decorateLogger(destination ? pino(loggerOpts, destination) : pino(loggerOpts), features, redactor, observer);
 
   if (opts.processHandlers) {
     const handlerOpts = typeof opts.processHandlers === 'object' ? opts.processHandlers : {};

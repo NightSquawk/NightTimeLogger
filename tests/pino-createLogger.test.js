@@ -321,7 +321,7 @@ describe('createLogger — sampling / rate limiting / deduplication (C)', () => 
 
     test('zero-config loggers report empty stats', () => {
         const { log } = build();
-        expect(log.getStats()).toEqual({ sampling: null, deduplication: null });
+        expect(log.getStats()).toMatchObject({ sampling: null, deduplication: null });
         expect(() => log.resetStats()).not.toThrow();
     });
 
@@ -410,7 +410,7 @@ describe('createLogger — silent mode (D)', () => {
 
         expect(log.level).toBe('silent');
         expect(sink.lines).toHaveLength(0);
-        expect(log.getStats()).toEqual({ sampling: null, deduplication: null });
+        expect(log.getStats()).toMatchObject({ sampling: null, deduplication: null });
         expect(() => log.resetStats()).not.toThrow();
         await expect(log.close(500)).resolves.toMatchObject({ drained: true });
     });
