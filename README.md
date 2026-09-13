@@ -398,7 +398,7 @@ Resolution order:
 
 1. `opts.silent`, when it is a boolean
 2. `NTLOGGER_SILENT` — `1`/`true`/`yes` → silent, `0`/`false`/`no` → not silent
-3. `NODE_ENV === 'test'` → silent
+3. `NODE_ENV === 'test'` or nonempty `NODE_TEST_CONTEXT` → silent
 
 A silent logger runs at Pino level `silent`, attaches no transport and installs no hooks, so
 test suites pay nothing for logging. `isSilent(opts)` is exported for testing the resolution.
@@ -408,8 +408,8 @@ const log = createLogger({ module: 'API' });          // silent under Jest (NODE
 const log = createLogger({ module: 'API', silent: false }); // force output in a test
 ```
 
-Node's built-in test runner does **not** set `NODE_ENV`, so projects using `node --test` should
-export `NTLOGGER_SILENT=1` in their test script instead.
+Node's built-in test runner is detected through `NODE_TEST_CONTEXT`; `node --test`
+scripts no longer need `NTLOGGER_SILENT=1` for the Pino API.
 
 ### Fastify integration
 
@@ -452,6 +452,22 @@ the factory's general deep redactor: keep them to identifiers such as `reqId` an
 Sampling, rate limiting, deduplication, destinations, and process handlers are not
 accepted by this factory; use `createLogger()` for those features. Framework-owned
 loggers do not gain ntlogger's `getStats()`, `resetStats()`, or `close()` methods.
+
+### Capturing test logs
+
+```javascript
+const { createTestLogger } = require('ntlogger/pino');
+const { logger, records } = createTestLogger();
+logger.child({ jobId: 'j1' }).warn({ password: 'secret' }, 'retry');
+// records[0] includes level: 40, jobId: 'j1', password: '[REDACTED]', msg: 'retry'
+await logger.close();
+```
+
+Records are captured synchronously after Pino serialization and redaction, with no
+console output or worker transport. The helper defaults to level `trace` and overrides
+automatic/environment silence; explicit `silent: true` still captures nothing.
+Sampling and level filtering apply normally. Clear captured records with
+`records.length = 0` when needed.
 
 ### Process handlers
 

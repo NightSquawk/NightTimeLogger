@@ -80,7 +80,7 @@ function isPlainContainer(value) {
  * Precedence:
  *   1. `opts.silent` when it is a boolean
  *   2. `NTLOGGER_SILENT` env var (`1|true|yes` / `0|false|no`, case-insensitive)
- *   3. `NODE_ENV === 'test'`
+ *   3. `NODE_ENV === 'test'` or a nonempty `NODE_TEST_CONTEXT`
  *
  * Anything else (unset, or an unrecognised env value) falls through to the next step.
  *
@@ -97,7 +97,7 @@ function isSilent(opts = {}) {
     if (SILENT_FALSE.has(value)) return false;
   }
 
-  return process.env.NODE_ENV === 'test';
+  return process.env.NODE_ENV === 'test' || Boolean(process.env.NODE_TEST_CONTEXT);
 }
 
 /**
@@ -514,4 +514,17 @@ function createPinoOptions(opts = {}) {
   return loggerOpts;
 }
 
+/** Capture the actual JSON records without a console or worker transport. */
+function createTestLogger(opts = {}) {
+  const records = [];
+  const logger = createLogger({
+    ...opts,
+    silent: opts.silent ?? false,
+    level: opts.level ?? 'trace',
+    destination: { write(line) { records.push(JSON.parse(line)); } },
+  });
+  return { logger, records };
+}
+
 module.exports.createPinoOptions = createPinoOptions;
+module.exports.createTestLogger = createTestLogger;

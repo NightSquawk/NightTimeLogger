@@ -2,7 +2,8 @@
 
 const Fastify = require('fastify');
 const { AsyncLocalStorage } = require('node:async_hooks');
-const { createPinoOptions } = require('../pino');
+const { spawnSync } = require('node:child_process');
+const { createPinoOptions, createTestLogger, isSilent } = require('../pino');
 
 test('Fastify logs serialize intact requests and redact headers, bodies, errors and context', async () => {
     const records = [];
@@ -82,4 +83,52 @@ test('options keep native path redaction and can disable redaction', () => {
         .info({ body: { password: 'visible' } });
     expect(records[1].body.password).toBe('visible');
     expect(() => createPinoOptions({ sampling: { info: 0.5 } })).toThrow(/createLogger/);
+});
+
+test('test logger captures serialized redacted records, child bindings and level filtering', async () => {
+    const { logger, records } = createTestLogger({ level: 'info' });
+    logger.debug('filtered');
+    logger.child({ deviceId: 'd1', password: 'child-secret' }).warn({ token: 'secret' }, 'warning');
+    logger.error(new Error('failed'));
+    expect(records).toHaveLength(2);
+    expect(records[0]).toMatchObject({ level: 40, deviceId: 'd1', password: '[REDACTED]', token: '[REDACTED]', msg: 'warning' });
+    expect(records[1].err.type).toBe('Error');
+    await logger.close();
+    const quiet = createTestLogger({ silent: true });
+    quiet.logger.info('invisible');
+    expect(quiet.records).toEqual([]);
+    await quiet.logger.close();
+});
+
+test('NODE_TEST_CONTEXT silence preserves explicit option and environment precedence', () => {
+    const original = { ...process.env };
+    try {
+        process.env.NODE_ENV = 'production';
+        process.env.NODE_TEST_CONTEXT = 'child-v8';
+        delete process.env.NTLOGGER_SILENT;
+        expect(isSilent()).toBe(true);
+        expect(isSilent({ silent: false })).toBe(false);
+        process.env.NTLOGGER_SILENT = '0';
+        expect(isSilent()).toBe(false);
+        process.env.NTLOGGER_SILENT = '1';
+        expect(isSilent({ silent: false })).toBe(false);
+        process.env.NODE_TEST_CONTEXT = '';
+        delete process.env.NTLOGGER_SILENT;
+        expect(isSilent()).toBe(false);
+    } finally {
+        process.env = original;
+    }
+});
+
+test('real node --test child auto-silences and test helper still captures', () => {
+    const env = { ...process.env };
+    delete env.NODE_ENV;
+    delete env.NTLOGGER_SILENT;
+    delete env.NODE_TEST_CONTEXT;
+    const result = spawnSync(process.execPath, ['--test', 'tests/fixtures/node-test-silence.cjs'], {
+        cwd: require('path').join(__dirname, '..'), env, encoding: 'utf8', timeout: 10000,
+    });
+    expect(result.error).toBeUndefined();
+    expect(result.status).toBe(0);
+    expect(result.stdout).not.toContain('SHOULD_NOT_EMIT');
 });

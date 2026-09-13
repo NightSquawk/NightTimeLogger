@@ -246,8 +246,14 @@ declare namespace ntlPinoTransport {
     > & { serializers?: LoggerOptions['serializers'] };
     export function createPinoOptions(opts?: CreatePinoOptions): LoggerOptions;
 
+    /** Synchronous capture of serialized, redacted records; explicitly silent loggers capture nothing. */
+    export function createTestLogger(opts?: Omit<CreateLoggerOptions, 'destination' | 'processHandlers'>): {
+        logger: NtlPinoLogger;
+        records: Array<Record<string, any>>;
+    };
+
     /**
-     * Resolve silent mode: `opts.silent` -> `NTLOGGER_SILENT` -> `NODE_ENV === 'test'`.
+     * Resolve silent mode: `opts.silent` -> `NTLOGGER_SILENT` -> `NODE_ENV === 'test'` or nonempty `NODE_TEST_CONTEXT`.
      */
     export function isSilent(opts?: { silent?: boolean }): boolean;
 
