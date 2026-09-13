@@ -56,8 +56,8 @@ you use; applications using both entry points should install all three peers.
 **Upgrade note:** Winston and `winston-transport` were previously installed by
 ntlogger automatically. Existing Winston consumers must add them as direct
 production dependencies using the command above before upgrading. This is a
-breaking installation change intended for the next major release; no package
-version or published release is changed by this development update.
+breaking installation change in v4.0.0. See [release notes](docs/releases/v4.0.0.md)
+for the complete migration checklist.
 
 ### Optional plugin backends
 
@@ -534,7 +534,7 @@ Callback mutation cannot change the primary log or its OTel export. Return the d
 promise if it needs to be included in shutdown; detached background work is not tracked.
 
 Pino **9.14 or newer** is required for the serialized-output hook. This raises the old
-Pino 8 minimum and belongs with the next major release's installation migration.
+Pino 8 minimum as part of the v4.0.0 installation migration.
 
 ### Scoped credential values
 
