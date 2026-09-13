@@ -13,7 +13,7 @@ const logger = require('ntlogger');
 const unregister = logger.setupSignalHandlers({ timeout: 30000 });
 ```
 
-Alternatively, keep your application's own shutdown handlers and `await log.close()` there. Importing the package no longer changes process exception or signal handling. Flush and close reject on delivery errors/timeouts, so callers should handle rejected promises. Close is idempotent, waits for transport cleanup, and removes the logger from its cache. Children share their parent's transports; closing a child flushes but does not close the parent. Log calls after close throw an error.
+Alternatively, keep your application's own shutdown handlers and `await log.close()` there. Importing the package no longer changes process exception or signal handling. Flush and close reject on delivery errors/timeouts, so callers should handle rejected promises. Close is idempotent, waits for transport cleanup, and removes the logger from its cache. Children share their parent's transports; closing a child flushes but does not close the parent. On this Winston API, log calls after close throw an error. See the Pino lifecycle note below for its different behavior.
 
 OpenTelemetry users must upgrade the logs SDK/API/HTTP exporter together to `^0.222.0` and resources to `^2.11.0`. Earlier SDK versions are no longer advertised as compatible. Database transports now own separate pools, use event timestamps in UTC, accept `ssl` configuration, and require simple SQL table identifiers. Existing tables are not altered automatically.
 
@@ -468,6 +468,15 @@ console output or worker transport. The helper defaults to level `trace` and ove
 automatic/environment silence; explicit `silent: true` still captures nothing.
 Sampling and level filtering apply normally. Clear captured records with
 `records.length = 0` when needed.
+
+### Pino lifecycle
+
+Pino's `close()` helper releases feature timers and drains buffered output. It does
+not mark the logger closed or guarantee that subsequent calls throw. A supplied
+writable destination may still accept writes; an ended transport may reject them.
+Stop producers before closing, and do not reuse the logger afterward. The Winston
+API enforces a closed-state error; this distinction is intentional documentation of
+the current behavior, not a new lifecycle guarantee.
 
 ### Process handlers
 
