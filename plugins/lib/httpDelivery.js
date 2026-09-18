@@ -3,6 +3,13 @@
 const http = require('http');
 const https = require('https');
 
+// Hard ceiling for any retry delay derived from a remote server's response
+// (e.g. a `Retry-After` header), independent of the configured `timeout`.
+// Bounding against this literal - rather than only against the
+// instance's own `this.timeout` - keeps a remote endpoint from ever being
+// able to schedule an arbitrarily long-lived timer.
+const MAX_RETRY_WAIT_MS = 60_000;
+
 class HttpDelivery {
     constructor(url, opts = {}) {
         this.url = new URL(url);
@@ -41,7 +48,7 @@ class HttpDelivery {
             try { return await this.request(payload, headers); }
             catch (error) {
                 if (error.retryable === false || attempt >= this.maxRetries) throw error;
-                const wait = Math.min(error.retryAfter ?? this.retryDelay * 2 ** attempt, this.timeout);
+                const wait = Math.min(error.retryAfter ?? this.retryDelay * 2 ** attempt, this.timeout, MAX_RETRY_WAIT_MS);
                 await new Promise(resolve => setTimeout(resolve, wait));
             }
         }
@@ -73,7 +80,7 @@ class HttpDelivery {
                         const retryAfter = res.headers['retry-after'];
                         if (retryAfter) {
                             const ms = Number.isFinite(Number(retryAfter)) ? Number(retryAfter) * 1000 : Date.parse(retryAfter) - Date.now();
-                            if (Number.isFinite(ms)) error.retryAfter = Math.max(0, ms);
+                            if (Number.isFinite(ms)) error.retryAfter = Math.min(Math.max(0, ms), MAX_RETRY_WAIT_MS);
                         }
                         reject(error);
                     }
