@@ -89,7 +89,7 @@ for per-plugin configuration.
 const logger = require('ntlogger');
 
 // Create a logger instance
-const log = logger('MyApp');
+const log = logger('MyApp', { level: 'internal', file: false });
 
 // Log messages at different levels
 log.info('Informational message');
@@ -102,6 +102,11 @@ log.trace('Trace message');
 log.internal('Internal message');
 ```
 
+The example enables every level and writes only to the console. By default, the
+Winston backend logs `info` and higher-priority messages (`warn`, `error`, `fatal`)
+and also writes files to `./logs`. Choose `debug`, `trace`, or `internal` to see
+more detail. Unsupported `level` values throw immediately with the supported choices.
+
 ## Output
 
 Check out [Quick Start](https://github.com/NightSquawk/NightTimeLogger/blob/main/examples/quick-start.js)
@@ -113,7 +118,7 @@ Check out [Full Configuration](https://github.com/NightSquawk/NightTimeLogger/bl
 
 ## Configuration Options
 
-- `level`: The default log level for the logger instance.
+- `level`: Minimum severity to emit (default: `info`). Supported values: `fatal`, `error`, `warn`, `info`, `debug`, `trace`, `internal`. Unsupported values throw.
 - `console`: Whether to enable console logging. Defaults to `true`.
 - `file`: Whether to enable file logging. Defaults to `true`.
 - `path`: The directory path where log files will be saved.
