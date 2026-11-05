@@ -1,8 +1,8 @@
 // Import the logger
 const logger = require('ntlogger');
 
-// Create a logger instance
-const log = logger('MyApp');
+// Show every level without creating log files.
+const log = logger('MyApp', { level: 'internal', file: false });
 
 // Log messages at different levels
 log.info('Informational message');
